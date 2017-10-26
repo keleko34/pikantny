@@ -1,0 +1,24 @@
+{
+  "name": "pikantny",
+  "version": "0.0.1",
+  "description": "Heavily extends the ability of event listeners to allow for listening to any and all property changes, dome changes, style changes, and method calls",
+  "main": "init.js",
+  "scripts": {
+    "test": "none"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/keleko34/pikantny.git"
+  },
+  "keywords": [
+    "DOM",
+    "Events",
+    "bindings"
+  ],
+  "author": "keleko34",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/keleko34/pikantny/issues"
+  },
+  "homepage": "https://github.com/keleko34/pikantny#readme"
+}
