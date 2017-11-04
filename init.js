@@ -8,7 +8,10 @@
   - globalized events - window?
   - inputs setting values v/
   - all text based operations fire one 'text|html'
-  - if prop doesn't exist create it on listener
+  - if prop doesn't exist create it on listener (default observable)
+  - add/remove observables (default/function)
+  
+  - rewrite to be dom extension hate friendly, do it for the haters
 */
 
 "use strict";
