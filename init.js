@@ -5,13 +5,28 @@
   - event propogation v/
   - styles v/
   - attributes v/
-  - globalized events - window?
+  - globalized events - window? v/
   - inputs setting values v/
-  - all text based operations fire one 'text|html'
+  - all text based operations fire one 'text|html' v/
   - if prop doesn't exist create it on listener (default observable)
   - add/remove observables (default/function)
   
   - rewrite to be dom extension hate friendly, do it for the haters
+  
+  Major
+  * __pikantny__prevalue__
+  * __pikantny__precheck__
+  * __pikantny__styleList__
+  * __pikantny__KeyList__
+  * events
+  
+  Event
+  * stop
+  * stoppedPropogation
+  * stoppedImmediatePropogation
+  * __stopped__
+  
+  *** issues with styles resetting the descriptor, need to figure out
 */
 
 "use strict";
@@ -20,7 +35,7 @@ window.pikantny = (function(){
   
   /* The entire node list starting from eventTarget down the chain, the prototypal enheritance starts with EventTarget > Node > Element > HTMLElement > all */
   var __HTMLList__ = [
-       "HTMLVideoElement", "HTMLUnknownElement", "HTMLUListElement", "HTMLTrackElement", "HTMLTitleElement", "HTMLTextAreaElement", "HTMLTemplateElement", "HTMLTableSectionElement", "HTMLTableRowElement", "HTMLTableElement", "HTMLTableColElement", "HTMLTableCellElement", "HTMLTableCaptionElement", "HTMLStyleElement", "HTMLSpanElement", "HTMLSourceElement", "HTMLSlotElement", "HTMLShadowElement", "HTMLSelectElement", "HTMLScriptElement", "HTMLQuoteElement", "HTMLProgressElement", "HTMLPreElement", "HTMLPictureElement", "HTMLParamElement", "HTMLParagraphElement", "HTMLOutputElement", "HTMLOptionsCollection", "HTMLOptionElement", "HTMLOptGroupElement", "HTMLObjectElement", "HTMLOListElement", "HTMLModElement", "HTMLMeterElement", "HTMLMetaElement", "HTMLMenuElement", "HTMLMediaElement", "HTMLMarqueeElement", "HTMLMapElement", "HTMLLinkElement", "HTMLLegendElement", "HTMLLabelElement", "HTMLLIElement", "HTMLInputElement", "HTMLImageElement", "HTMLIFrameElement", "HTMLHtmlElement", "HTMLHeadingElement", "HTMLHeadElement", "HTMLHRElement", "HTMLFrameSetElement", "HTMLFrameElement", "HTMLFormElement", "HTMLFormControlsCollection", "HTMLFontElement", "HTMLFieldSetElement", "HTMLEmbedElement", "HTMLDocument", "HTMLDivElement", "HTMLDirectoryElement", "HTMLDialogElement", "HTMLDetailsElement", "HTMLDataListElement", "HTMLDListElement", "HTMLContentElement", "HTMLCollection", "HTMLCanvasElement", "HTMLButtonElement", "HTMLBodyElement", "HTMLBaseElement", "HTMLBRElement", "HTMLAudioElement", "HTMLAreaElement", "HTMLAnchorElement"
+       "HTMLVideoElement", "HTMLUnknownElement", "HTMLUListElement", "HTMLTrackElement", "HTMLTitleElement", "HTMLTextAreaElement", "HTMLTemplateElement", "HTMLTableSectionElement", "HTMLTableRowElement", "HTMLTableElement", "HTMLTableColElement", "HTMLTableCellElement", "HTMLTableCaptionElement", "HTMLStyleElement", "HTMLSpanElement", "HTMLSourceElement", "HTMLSlotElement", "HTMLShadowElement", "HTMLSelectElement", "HTMLScriptElement", "HTMLQuoteElement", "HTMLProgressElement", "HTMLPreElement", "HTMLPictureElement", "HTMLParamElement", "HTMLParagraphElement", "HTMLOutputElement", "HTMLOptionElement", "HTMLOptGroupElement", "HTMLObjectElement", "HTMLOListElement", "HTMLModElement", "HTMLMeterElement", "HTMLMetaElement", "HTMLMenuElement", "HTMLMediaElement", "HTMLMarqueeElement", "HTMLMapElement", "HTMLLinkElement", "HTMLLegendElement", "HTMLLabelElement", "HTMLLIElement", "HTMLInputElement", "HTMLImageElement", "HTMLIFrameElement", "HTMLHeadingElement", "HTMLHeadElement", "HTMLHRElement", "HTMLFrameSetElement", "HTMLFrameElement", "HTMLFormElement", "HTMLFontElement", "HTMLFieldSetElement", "HTMLEmbedElement", "HTMLDivElement", "HTMLDirectoryElement", "HTMLDialogElement", "HTMLDetailsElement", "HTMLDataListElement", "HTMLDListElement", "HTMLCanvasElement", "HTMLButtonElement", "HTMLBaseElement", "HTMLBRElement", "HTMLAudioElement", "HTMLAreaElement", "HTMLAnchorElement"
       ],
       
       __GlobalList__ = ["EventTarget","Node","Element","HTMLElement"].concat(__HTMLList__),
@@ -38,6 +53,19 @@ window.pikantny = (function(){
       
       /* allowing us to see the original events */
       __EventList__ = Object.keys(HTMLElement.prototype).filter(function(v){return (v.indexOf('on') === 0);});
+  
+  /* Backup descriptors */
+  var __addEventListener = EventTarget.prototype.addEventListener,
+      __removeEventListener = EventTarget.prototype.removeEventListener,
+      __stopImmediatePropagation = Event.prototype.stopImmediatePropagation,
+      __stopPropagation = Event.prototype.stopPropagation,
+      __setAttribute = Element.prototype.setAttribute,
+      __removeAttribute = Element.prototype.removeAttribute,
+      __setProperty = CSSStyleDeclaration.prototype.setProperty,
+      __removeProperty = CSSStyleDeclaration.prototype.removeProperty,
+      __valueSelectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value'),
+      __valueInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'),
+      __checkedInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked');
   
   /* add original descriptors to a list? */
   
@@ -382,7 +410,7 @@ window.pikantny = (function(){
       }
       else
       {
-        this.__setAttribute__.call(this,key,value);
+        __setAttribute.call(this,key,value);
       }
       if(!this.__stopped__)
       {
@@ -409,7 +437,7 @@ window.pikantny = (function(){
     __event.value = undefined;
     if(this.dispatchEvent(__event))
     {
-      __action = this.__removeAttribute__.call(this,key);
+      __action = __removeAttribute.call(this,key);
       if(!this.__stopped__)
       {
         var __event_update = init.event(key,true);
@@ -424,32 +452,74 @@ window.pikantny = (function(){
     return __action;
   }
   
+  function descriptorAddEventListener(key,func)
+  {
+    var _key = processEvent.apply(this,arguments);
+    if(this.events === undefined) this.events = {};
+    if(this.events[_key] === undefined) this.events[_key] = [];
+    if(this.events[_key].indexOf(func) === -1) this.events[_key].push(func);
+    return __addEventListener.call(this,_key,func);
+  }
+  
+  function descriptorRemoveEventListener(key,func)
+  {
+    var _key = processEventRemoval.apply(this,arguments);
+    if(this.events === undefined) this.events = {};
+    if(this.events[_key] === undefined) this.events[_key] = [];
+    this.events[_key].splice(this.events[_key].indexOf(func),1);
+    if(this.events[_key].length === 0) this.events[_key] = undefined;
+    return __removeEventListener.call(this,_key,func);
+  }
+  
+  function descriptorStopImmediatePropogation()
+  {
+    this.stoppedImmediatePropagation = true;
+    this.stoppedPropagation = true;
+    return __stopImmediatePropagation.call(this);
+  }
+  
+  function descriptorStopPropogation()
+  {
+    this.stoppedPropagation = true;
+    return __stopPropagation.call(this);
+  }
+  
   function descriptorInlineStyle(descriptor,element,key,keyProper)
   {
     var __descriptor = descriptor,
+        __writable = descriptor.writable,
         __key = key,
         __keyProper = keyProper,
         __element = element,
-        __oldValue;
+        __oldValue = descriptor.value,
+        __value = descriptor.value;
     
     function __get()
     {
-      return __element.style.getPropertyValue(__keyProper);
+      return this.getPropertyValue(__keyProper);
     }
     
     function __set(v)
     {
-      console.log('set_inline')
-      if(__descriptor.writable)
+      if(__writable)
       {
         var __event = init.event(__key);
-        __event.oldValue = __oldValue = __descriptor.value;
+        __event.oldValue = __oldValue = __value;
         __event.stopped = __element.__stopped__;
         __event.value = v;
         
         if(__element.dispatchEvent(__event))
         {
-          __element.style[(typeof v === 'string' && v.length === 0 ? '__removeProperty__' : '__setProperty__')](__keyProper,v);
+          if(typeof v === 'string' && v.length === 0)
+          {
+            __removeProperty.call(this,__keyProper);
+            //this.removeProperty(__keyProper);
+          }
+          else
+          {
+            __setProperty.call(this,__keyProper,v);
+            //this.setProperty(__keyProper,v);
+          }
 
           if(!__element.__stopped__)
           {
@@ -468,7 +538,7 @@ window.pikantny = (function(){
       get:__get,
       set:__set,
       enumerable:__descriptor.enumerable,
-      configurable:false
+      configurable:true
     }
   }
   
@@ -495,14 +565,13 @@ window.pikantny = (function(){
     return {
       get:__descGet,
       set:__set,
-      enumerable:__descriptor.enumerate,
+      enumerable:__descriptor.enumerable,
       configurable:true
     };
   }
   
   function descriptorCSSSetProperty(key, value, priority)
   {
-    console.log('setting');
     var __inlineKey = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
     this[__inlineKey] = value + (priority ? '!'+priority : '');
     return undefined;
@@ -578,7 +647,7 @@ window.pikantny = (function(){
         }
         else
         {
-          __target.__checkeddescriptor__.set(__oldChecked);
+          __checkedInputDescriptor.set(__oldChecked);
           __target.__stopped__ = undefined;
           return false;
         }
@@ -598,11 +667,11 @@ window.pikantny = (function(){
     {
       if(__isRadio) 
       {
-        __target.__checkeddescriptor__.set.call(__target,__oldChecked);
+        __checkedInputDescriptor.set.call(__target,__oldChecked);
       }
       else
       {
-        __target.__valuedescriptor__.set.call(__target,__oldValue);
+        __valueInputDescriptor.set.call(__target,__oldValue);
       }
       __target.__stopped__ = undefined;
       return false;
@@ -614,7 +683,7 @@ window.pikantny = (function(){
   function inputListener(e)
   { 
     /* if we are holding the key we should act like a keyup event happened */
-    if(this.isHolding)
+    if(this.isPressed)
     {
       if(!runInputEvents.call(this,e))
       {
@@ -622,11 +691,11 @@ window.pikantny = (function(){
         return false;
       }
     }
-    this.isHolding = true;
+    this.isPressed = true;
     
     if(['checked','radio'].indexOf(this.type) === -1)
     {
-      this.__prevalue__ = this.value;
+      this.__pikantny__prevalue__ = this.value;
       /* value gets set prior to this running so we can prevent it without user seeing the value, checked requires click event to do the same */
       setTimeout(function(){
         runInputEvents.call(e.target,e);
@@ -634,8 +703,8 @@ window.pikantny = (function(){
     }
     else
     {
-      this.__prevalue__ = this.value;
-      this.__prechecked__ = this.checked;
+      this.__pikantny__prevalue__ = this.value;
+      this.__pikantny__prechecked__ = this.checked;
     }
   }
   
@@ -645,7 +714,7 @@ window.pikantny = (function(){
     {
       runInputEvents.call(this,e);
     }
-    this.isHolding = false;
+    this.isPressed = false;
   }
   
   function selectListener(e)
@@ -683,35 +752,38 @@ window.pikantny = (function(){
     }
     else
     {
-      __target.__valuedescriptor__.set.call(__target,__oldValue);
+      __valueSelectDescriptor.set.call(__target,__oldValue);
       __target.__stopped__ = undefined;
       return false;
     }
     return true;
   }
   
+  function selectFocusListener(e)
+  {
+    this.__pikantny__prevalue__ = this.value;
+    this.__pikantny__prevalue__ = this.selectedIndex;
+  }
+  
   function applyTextChanges()
   {
-    if(this.__inputlistener__ === undefined)
+    if(this.__pikantny__prevalue__ === undefined)
     {
-      Object.defineProperty(this,'__inputlistener__',descriptorHidden(inputListener));
-      Object.defineProperty(this,'__inputupdatelistener__',descriptorHidden(inputUpListener));
-      
-      this.isHolding = false;
+      if(this.isPressed === undefined) this.isPressed = false;
       
       /* need to support html5 input types */
       
       if(['checkbox','radio'].indexOf(this.type) !== -1)
       {
-        this.addEventListener('mousedown',this.__inputlistener__,false);
-        this.addEventListener('click',this.__inputupdatelistener__,false);
-        Object.defineProperty(this,'__prevalue__',descriptorHidden(this.value));
-        Object.defineProperty(this,'__prechecked__',descriptorHidden(this.checked.toString()));
+        this.addEventListener('mousedown',inputListener,false);
+        this.addEventListener('click',inputUpListener,false);
+        Object.defineProperty(this,'__pikantny__prevalue__',descriptorHidden(this.value));
+        Object.defineProperty(this,'__pikantny__prechecked__',descriptorHidden(this.checked.toString()));
       }
       else
       {
-        this.addEventListener('keydown',this.__inputlistener__,false);
-        this.addEventListener('keyup',this.__inputupdatelistener__,false);
+        this.addEventListener('keydown',inputListener,false);
+        this.addEventListener('keyup',inputUpListener,false);
         Object.defineProperty(this,'__prevalue__',descriptorHidden(this.value));
       }
     }
@@ -719,19 +791,35 @@ window.pikantny = (function(){
   
   function applySelectChanges()
   {
-    if(this.__selectlistener__ === undefined)
+    if(this.__pikantny__prevalue__ === undefined)
     {
-      Object.defineProperty(this,'__selectlistener__',descriptorHidden(selectListener));
-
-      Object.defineProperty(this,'__selectfocuslistener__',descriptorHidden(function(){
-        this.__prevalue__ = this.value;
-        this.__preindex__ = this.selectedIndex;
-      }));
-
-      this.addEventListener('focus',this.__selectfocuslistener__);
-      this.addEventListener('change',this.__selectlistener__);
-      Object.defineProperty(this,'__prevalue__',descriptorHidden(this.value));
-      Object.defineProperty(this,'__preindex__',descriptorHidden(this.selectedIndex));
+      this.addEventListener('focus',selectFocusListener);
+      this.addEventListener('change',selectListener);
+      Object.defineProperty(this,'__pikantny__prevalue__',descriptorHidden(this.value));
+      Object.defineProperty(this,'__pikantny__prevalue__',descriptorHidden(this.selectedIndex));
+    }
+  }
+  
+  function processStyleEvent(key,keyProper)
+  {
+    if(this.__pikantny__styleList__ === undefined) Object.defineProperty(this,'__pikantny__styleList__',descriptorHidden([]));
+    if(this.__pikantny__styleList__.indexOf(key) === -1)
+    {
+        Object.defineProperty(this.style,key,descriptorInlineStyle(Object.getOwnPropertyDescriptor(this.style,key),this,key,keyProper));
+        this.__pikantny__styleList__.push(key);
+        
+        /* this allows for bubbling to take effect */
+        var __children = this.querySelectorAll('*');
+        for(var x=0,len=__children.length,child;x<len;x++)
+        {
+          child = __children[x];
+          if(child.__pikantny__styleList__ === undefined) Object.defineProperty(child,'__pikantny__styleList__',descriptorHidden([]));
+          if(child.__pikantny__styleList__.indexOf(key) === -1)
+          {
+            Object.defineProperty(child.style,key,descriptorInlineStyle(Object.getOwnPropertyDescriptor(child.style,key),child,key,keyProper));
+            child.__pikantny__styleList__.push(key);
+          }
+        } 
     }
   }
   
@@ -743,13 +831,7 @@ window.pikantny = (function(){
     
     if(__CSSInlineList.indexOf(__cssInlineKey) !== -1)
     {
-      if(this.__styleList__ === undefined) Object.defineProperty(this,'__styleList__',descriptorHidden([]));
-      
-      if(this.__styleList__.indexOf(__cssInlineKey) === -1)
-      {
-        Object.defineProperty(this.style,__cssInlineKey,descriptorInlineStyle(Object.getOwnPropertyDescriptor(this.style,__cssInlineKey),this,__cssInlineKey,__cssKey));
-        this.__styleList__.push(__cssInlineKey);
-      }
+      processStyleEvent.call(this,__cssInlineKey,__cssKey);
       
       return __cssInlineKey;
     }
@@ -838,20 +920,20 @@ window.pikantny = (function(){
             
             if(__isRemovable)
             {
-              this.removeEventListener('mousedown',this.__inputlistener__);
-              this.removeEventListener('click',this.__inputupdatelistener__);
+              this.removeEventListener('mousedown',inputListener);
+              this.removeEventListener('click',inputUpListener);
             }
           }
           else
           {
-            this.removeEventListener('keydown',this.__inputlistener__);
-            this.removeEventListener('keyup',this.__inputupdatelistener__);
+            this.removeEventListener('keydown',inputListener);
+            this.removeEventListener('keyup',inputUpListener);
           }
         }
         else if(['select'].indexOf(this.nodeName.toLowerCase()) !== -1)
         {
-          this.removeEventListener('focus',this.__selectfocuslistener__);
-          this.removeEventListener('change',this.__selectlistener__);
+          this.removeEventListener('focus',selectFocusListener);
+          this.removeEventListener('change',selectListener);
         }
         /* need to check if any listeners exist in the  lower tree... oh boy... */
         else
@@ -880,19 +962,19 @@ window.pikantny = (function(){
                 {
                   if(isRadio)
                   {
-                    els[x].removeEventListener('mousedown',els[x].__inputlistener__);
-                    els[x].removeEventListener('mouseup',els[x].__inputupdatelistener__);
+                    els[x].removeEventListener('mousedown',inputListener);
+                    els[x].removeEventListener('mouseup',inputUpListener);
                   }
                   else
                   {
-                    els[x].removeEventListener('keydown',els[x].__inputlistener__);
-                    els[x].removeEventListener('keyup',els[x].__inputupdatelistener__);
+                    els[x].removeEventListener('keydown',inputListener);
+                    els[x].removeEventListener('keyup',inputUpListener);
                   }
                 }
                 else
                 {
-                  els[x].removeEventListener('focus',els[x].__selectfocuslistener__);
-                  els[x].removeEventListener('change',els[x].__selectlistener__);
+                  els[x].removeEventListener('focus',selectFocusListener);
+                  els[x].removeEventListener('change',selectListener);
                 }
               }
             }
@@ -924,7 +1006,7 @@ window.pikantny = (function(){
   function init(obj,local)
   {
     if(local === undefined) local = window;
-    if(local.__KeyList__ === undefined) Object.defineProperty(local,'__KeyList__',descriptorHidden([]));
+    if(local.__pikantny__KeyList__ === undefined) Object.defineProperty(local,'__pikantny__KeyList__',descriptorHidden([]));
     for(var x=0,keys=Object.getOwnPropertyNames(obj),len=keys.length;x<len;x++) init.inject(obj,keys[x],local);
     
     return init;
@@ -932,7 +1014,7 @@ window.pikantny = (function(){
 
   init.inject = function(obj,key,local)
   {
-    if(local.__KeyList__.indexOf(key) !== -1 || __blocked__.indexOf(key) !== -1 || key.indexOf('__') === 0) return init;
+    if(local.__pikantny__KeyList__.indexOf(key) !== -1 || __blocked__.indexOf(key) !== -1 || key.indexOf('__') === 0) return init;
     
     var __descriptor = Object.getOwnPropertyDescriptor(obj,key),
         __defined;
@@ -958,7 +1040,7 @@ window.pikantny = (function(){
           Object.defineProperty(HTMLElement.prototype,'on'+key+'update',descriptorEvent(key,true));
       }
     }
-    local.__KeyList__.push(key);
+    local.__pikantny__KeyList__.push(key);
     return init;
   }
   
@@ -969,99 +1051,44 @@ window.pikantny = (function(){
   
   init.observables = function(local)
   {
-    return (local || window).__KeyList__.slice();
+    return (local || window).__pikantny__KeyList__.slice();
   }
   
   init.addEventListener = document.documentElement.addEventListener.bind(document.documentElement);
   init.removeEventListener = document.documentElement.removeEventListener.bind(document.documentElement);
   
   /* handle event recording */
-  if(EventTarget.prototype.__addEventListener__ === undefined && EventTarget.prototype.__removeEventListener__ === undefined)
-  {
-    Object.defineProperty(EventTarget.prototype,'__addEventListener__',descriptorHidden(EventTarget.prototype.addEventListener));
-    EventTarget.prototype.addEventListener = function(key,func)
-    {
-      key = processEvent.call(this,key,func);
-      if(this.events === undefined) this.events = {};
-      if(this.events[key] === undefined) this.events[key] = [];
-      if(this.events[key].indexOf(func) === -1) this.events[key].push(func);
-      return this.__addEventListener__.call(this,key,func);
-    }
-    Object.defineProperty(EventTarget.prototype,'__removeEventListener__',descriptorHidden(EventTarget.prototype.removeEventListener));
-    EventTarget.prototype.removeEventListener = function(key,func)
-    {
-      key = processEventRemoval.call(this,key,func);
-      if(this.events === undefined) this.events = {};
-      if(this.events[key] === undefined) this.events[key] = [];
-      this.events[key].splice(this.events[key].indexOf(func),1);
-      if(this.events[key].length === 0) this.events[key] = undefined;
-      return this.__removeEventListener__.call(this,key,func);
-    }
-  }
+  EventTarget.prototype.addEventListener = descriptorAddEventListener;
+  EventTarget.prototype.removeEventListener = descriptorRemoveEventListener;
   
   /* handle ability to stop an update */
   if(EventTarget.prototype.stop === undefined) EventTarget.prototype.stop = function(){ this.__stopped__ = true; return this;};
   
   /* handle propagation */
-  if(Event.prototype.stoppedImmediatePropagation === undefined)
-  {
-    Event.prototype.stoppedImmediatePropagation = false;
-    Object.defineProperty(Event.prototype,'__stopImmediatePropagation__',descriptorHidden(Event.prototype.stopImmediatePropagation));
-    Event.prototype.stopImmediatePropagation = function(){
-      this.stoppedImmediatePropagation = true;
-      this.stoppedPropagation = true;
-      return this.__stopImmediatePropagation__.call(this);
-    };
-  }
-
-  if(Event.prototype.stoppedPropagation === undefined)
-  {
-    Event.prototype.stoppedPropagation = false;
-    Object.defineProperty(Event.prototype,'__stopPropagation__',descriptorHidden(Event.prototype.stopPropagation));
-    Event.prototype.stopPropagation = function(){
-      this.stoppedPropagation = true;
-      return this.__stopPropagation__.call(this);
-    };
-  }
+  Event.prototype.stopImmediatePropagation = descriptorStopImmediatePropogation;
+  Event.prototype.stoppedImmediatePropagation = false;
   
-  if(Element.prototype.__setAttribute__ === undefined && Element.prototype.__removeAttribute__ === undefined)
-  {
-    Object.defineProperty(Element.prototype,'__setAttribute__',descriptorHidden(Element.prototype.setAttribute));
-    Element.prototype.setAttribute = descriptorSetAttribute;
-    Object.defineProperty(Element.prototype,'__removeAttribute__',descriptorHidden(Element.prototype.removeAttribute));
-    Element.prototype.removeAttribute = descriptorRemoveAttribute;
-    
-    var __valDescriptor = Object.getOwnPropertyDescriptor(Attr.prototype,'value');
-    
-    if(__valDescriptor) Object.defineProperty(Attr.prototype,'value',descriptorAttribute(__valDescriptor,'value'));
-    Object.defineProperty(Node.prototype,'nodeValue',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'nodeValue'),'nodeValue'));
-    Object.defineProperty(Node.prototype,'textContent',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'textContent'),'textContent'));
-  }
+  Event.prototype.stopPropagation = descriptorStopPropogation;
+  Event.prototype.stoppedPropagation = false;
+  
+  /* handle attribute setting */
+  Element.prototype.setAttribute = descriptorSetAttribute;
+  Element.prototype.removeAttribute = descriptorRemoveAttribute;
+  
+  Object.defineProperty(Node.prototype,'nodeValue',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'nodeValue'),'nodeValue'));
+  Object.defineProperty(Node.prototype,'textContent',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'textContent'),'textContent'));
+  
+  /* some browsers don't support the value property */
+  var __valDescriptor = Object.getOwnPropertyDescriptor(Attr.prototype,'value');
+  if(__valDescriptor) Object.defineProperty(Attr.prototype,'value',descriptorAttribute(__valDescriptor,'value'));
   
   /* handle special css changes */
-  if(CSSStyleDeclaration.prototype.__setProperty__ === undefined && CSSStyleDeclaration.prototype.__removeProperty__ === undefined)
-  {
-    Object.defineProperty(CSSStyleDeclaration.prototype,'cssText',descriptorCSSText(Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype,'cssText'),'cssText'));
-    
-    Object.defineProperty(CSSStyleDeclaration.prototype,'__setProperty__',descriptorHidden(CSSStyleDeclaration.prototype.setProperty));
-    CSSStyleDeclaration.prototype.setProperty = descriptorCSSSetProperty;
-    
-    Object.defineProperty(CSSStyleDeclaration.prototype,'__removeProperty__',descriptorHidden(CSSStyleDeclaration.prototype.removeProperty));
-    CSSStyleDeclaration.prototype.removeProperty = descriptorCSSRemoveProperty;
-  }
+  CSSStyleDeclaration.prototype.setProperty = descriptorCSSSetProperty;
+  CSSStyleDeclaration.prototype.removeProperty = descriptorCSSRemoveProperty;
   
-  /* handle special case for select value descriptor */
-  if(HTMLSelectElement.prototype.__valuedescriptor__ === undefined)
-  {
-    Object.defineProperty(HTMLSelectElement.prototype,'__valuedescriptor__',descriptorHidden(Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')));
-  }
+  Object.defineProperty(CSSStyleDeclaration.prototype,'cssText',descriptorCSSText(Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype,'cssText'),'cssText'));
   
-  if(HTMLInputElement.prototype.__valuedescriptor__ === undefined)
-  {
-    Object.defineProperty(HTMLInputElement.prototype,'__valuedescriptor__',descriptorHidden(Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')));
-    Object.defineProperty(HTMLInputElement.prototype,'__checkeddescriptor__',descriptorHidden(Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked')));
-  }
-  
+  /* main loop for all dom prototypes */
   for(var x=0,len=__GlobalList__.length,proto;x<len;x++)
   {
     if(window[__GlobalList__[x]] !== undefined && window[__GlobalList__[x]].prototype !== undefined) init(window[__GlobalList__[x]].prototype,window);
