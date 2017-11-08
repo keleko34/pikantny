@@ -484,6 +484,26 @@ window.pikantny = (function(){
     return __stopPropagation.call(this);
   }
   
+  function getInlineKey(key)
+  {
+    var _key = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();});
+    if(_key.indexOf('-webkit') === 0) _key = _key.replace('-webkit','webkit');
+    if(_key.indexOf('-moz') === 0) _key = _key.replace('-moz','moz');
+    if(_key.indexOf('-ms') === 0) _key = _key.replace('-ms','ms');
+    
+    return _key;
+  }
+  
+  function getStyleKey(key)
+  {
+    var _key = key.replace(/([A-Z])/g, "-$1");
+    if(_key.indexOf('webkit') === 0) _key = _key.replace('webkit','-webkit');
+    if(_key.indexOf('moz') === 0) _key = _key.replace('moz','-moz');
+    if(_key.indexOf('ms') === 0) _key = _key.replace('ms','-ms');
+    
+    return _key.toLowerCase();
+  }
+  
   function descriptorInlineStyle(descriptor,element,key,keyProper)
   {
     var __descriptor = descriptor,
@@ -496,7 +516,7 @@ window.pikantny = (function(){
     
     function __get()
     {
-      return this.getPropertyValue(__keyProper);
+      return __value;
     }
     
     function __set(v)
@@ -513,12 +533,11 @@ window.pikantny = (function(){
           if(typeof v === 'string' && v.length === 0)
           {
             __removeProperty.call(this,__keyProper);
-            //this.removeProperty(__keyProper);
           }
           else
           {
+            __value = v;
             __setProperty.call(this,__keyProper,v);
-            //this.setProperty(__keyProper,v);
           }
 
           if(!__element.__stopped__)
@@ -572,14 +591,14 @@ window.pikantny = (function(){
   
   function descriptorCSSSetProperty(key, value, priority)
   {
-    var __inlineKey = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
+    var __inlineKey = getInlineKey(key);
     this[__inlineKey] = value + (priority ? '!'+priority : '');
     return undefined;
   }
   
   function descriptorCSSRemoveProperty(key)
   {
-    var __inlineKey = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
+    var __inlineKey = getInlineKey(key);
     this[__inlineKey] = '';
     return undefined;
   }
@@ -588,7 +607,7 @@ window.pikantny = (function(){
   {
     var __cssRules = value.split(';').reduce(function(style,v,x){
           var split = v.split(':'),
-          prop = split[0].replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit'),
+          prop = getInlineKey(split[0]),
           value = split[1]; 
           style[prop] = value;
           
@@ -598,7 +617,7 @@ window.pikantny = (function(){
     for(var x=0,oldSplit=oldValue.split(';'),len=oldSplit.length,split,prop,value;x<len;x++)
     {
       split = oldSplit[x].split(':');
-      prop = split[0].replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
+      prop = getInlineKey(split[0]);
       if(__cssRules[prop] === undefined) __cssRules[prop] = '';
     }
     
@@ -826,8 +845,8 @@ window.pikantny = (function(){
   function processEvent(key,func)
   {
     /* handle inline css change listeners, attribute, and cssText, setProperty */
-    var __cssKey = key.replace(/([A-Z])/g, "-$1").replace('webkit','-webkit').toLowerCase(),
-        __cssInlineKey = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
+    var __cssKey = getStyleKey(key),
+        __cssInlineKey = getInlineKey(key);
     
     if(__CSSInlineList.indexOf(__cssInlineKey) !== -1)
     {

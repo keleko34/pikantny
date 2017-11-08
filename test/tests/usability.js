@@ -68,7 +68,7 @@
   - element style stop immediate propogation
   - element style stop update
   
-  Element styles, bubbled: (class, role, disabled, custom)
+  Element styles, bubbled: (color, font-size, margin)
   ------------------------------
   - element style event, event on parent elements
   - element style update event, event on parent elements
@@ -76,6 +76,12 @@
   - element style stop propogation, event on parent elements
   - element style stop immediate propogation, event on parent elements
   - element style stop update, event on parent elements
+  
+  Element Style Special:
+  ------------------------
+  -webkit-user-select  Chrome all / Safari all
+  -moz-user-select     Firefox all
+  -ms-user-select      IE all
   
   html/text events:
   ('textContent','innerHTML','innerText','outerHTML','outerText','appendChild','removeChild','replaceChild','insertAdjacentHTML','insertBefore')
