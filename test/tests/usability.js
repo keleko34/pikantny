@@ -1,7 +1,7 @@
 /* 
   Need to test:
   
-  Standard property: (innerHTML, className, id, onclick)
+  Standard property: (innerHTML, className, id, onclick) v/
   -----------------------
   - standard prop set/get
   - stanard add and remove events
@@ -826,13 +826,21 @@ mocha.setup('bdd');
           it("Should function normally returning and setting onclick method",function(){
              var inner = parentElement.onclick,
                  check = null,
+                 cb = spy(),
                  test = function(e){console.log(e);};
+            
              /* check default */
              expect(inner).to.equal(check);
              parentElement.onclick = test;
              /* check replaced content */
              expect(parentElement.onclick).to.equal(test);
-
+             
+             parentElement.onclick = cb;
+             
+             parentElement.dispatchEvent(new MouseEvent('click'));
+            
+             expect(cb.callCount).to.equal(1);
+            
              /* set content back */
              parentElement.onclick = inner;
              expect(parentElement.onclick).to.equal(check);
@@ -1063,25 +1071,213 @@ mocha.setup('bdd');
       });
   });
   
-  describe("Standard function properties", function(){
+  describe("Standard dom functions", function(){
     describe("appendChild", function(){
-      /* default functionality */
-         it("Should function normally appending an element",function(){
-             var inner = parentElement.innerHTML,
-                 test = document.createElement('input'),
-                 testAppend = parentElement.appendChild(test);
-           
-             /* check if element exists */
-             expect(parentElement.querySelector('input')).to.not.equal(null);
-             parentElement.innerHTML = test;
-           
-             /* check if method returned correct output */
-             expect(testAppend).to.equal(test);
+        /* default functionality */
+        it("Should function normally appending an element",function(){
+           var inner = parentElement.innerHTML,
+               test = document.createElement('input'),
+               testAppend = parentElement.appendChild(test);
 
-             /* set content back */
+           /* check if element exists */
+           expect(parentElement.querySelector('input')).to.not.equal(null);
+
+           /* check if method returned correct output */
+           expect(testAppend).to.equal(test);
+
+           /* set content back */
+           parentElement.innerHTML = inner;
+           expect(parentElement.innerHTML).to.equal(inner);
+        });
+
+        /* remove and add listeners */
+        it("Should be able to add and remove event listeners",function(){
+          var test = document.createElement('input'),
+              inner = parentElement.innerHTML, 
+              cb = spy();
+
+          parentElement.addEventListener('appendChild',cb);
+          parentElement.appendChild(test);
+          expect(cb.callCount).to.equal(1);
+          parentElement.removeEventListener('appendChild',cb);
+          parentElement.appendChild(test);
+          expect(cb.callCount).to.equal(1);
+
+          parentElement.innerHTML = inner;
+          expect(parentElement.innerHTML).to.equal(inner);
+        });
+      
+        /* add standard listeners */
+        it("Should fire an event when a listener is attached before the method has been implemented",function(){
+            var test = document.createElement('input'),
+                inner = parentElement.innerHTML,
+                cb = spy();
+
+             function testFunc(e)
+             {
+                expect(parentElement.querySelectorAll('input').length).to.equal(0);
+                cb.apply(this,arguments);
+                parentElement.removeEventListener('appendChild',testFunc);
+             }
+
+             parentElement.addEventListener('appendChild',testFunc);
+             parentElement.appendChild(test);
+
+             expect(cb.callCount).to.equal(1);
              parentElement.innerHTML = inner;
              expect(parentElement.innerHTML).to.equal(inner);
-         });
+        });
+        
+        /* add update listeners */
+        it("Should fire an update event after the method has been implemented",function(){
+            var test = document.createElement('input'),
+                inner = parentElement.innerHTML,
+                cb = spy();
+
+             function testFunc(e)
+             {
+                expect(parentElement.querySelectorAll('input').length).to.equal(1);
+                cb.apply(this,arguments);
+                parentElement.removeEventListener('appendChild',testFunc);
+                parentElement.innerHTML = inner;
+             }
+
+             parentElement.addEventListener('appendChildupdate',testFunc);
+             parentElement.appendChild(test);
+
+             expect(cb.callCount).to.equal(1);
+        });
+      
+        /* event object */
+        it("Should contain all standard Event() properties and the new: arguments, method, stopped, stop in the event object",function(){
+          var test = document.createElement('input'),
+              inner = parentElement.innerHTML;
+             
+          function testFunc(e)
+          {
+             expect(e instanceof Event).to.equal(true);
+             expect(e.arguments).to.not.equal(undefined);
+             expect(e.method).to.not.equal(undefined);
+             expect(e.stopped).to.not.equal(undefined);
+             expect(e.stop).to.not.equal(undefined);
+             parentElement.removeEventListener('appendChild',testFunc);
+          }
+
+          parentElement.addEventListener('appendChild',testFunc);
+          parentElement.appendChild(test);
+          parentElement.innerHTML = inner;
+        });
+      
+        /* preventDefault */
+        it("Should prevent the method from being implemented when event.preventDefault(); is called",function(){
+            var test = document.createElement('input'),
+                inner = parentElement.innerHTML,
+                cb = spy();
+
+            function testFunc(e)
+            {
+               e.preventDefault();
+               cb.apply(this,arguments);
+               parentElement.removeEventListener('appendChild',testFunc);
+            }
+
+            parentElement.addEventListener('appendChild',testFunc);
+            parentElement.appendChild(test);
+
+            expect(cb.callCount).to.equal(1);
+            expect(parentElement.querySelectorAll('input').length).to.equal(0);
+
+            parentElement.innerHTML = inner;
+        });
+        
+        /* stopPropogation */
+        it("Should prevent bubbling when event.stopPropogation(); is called",function(){
+            var test = document.createElement('input'),
+                inner = parentElement.innerHTML,
+                cbChild = spy(),
+                cbParent = spy();
+
+            function testChildFunc(e)
+            {
+                e.stopPropagation();
+                
+                expect(childElement.querySelector('input')).to.equal(null);
+                cbChild.apply(this,arguments);
+                childElement.removeEventListener('appendChild',testChildFunc);
+                parentElement.removeEventListener('appendChild',cbParent);
+            }
+
+            childElement.addEventListener('appendChild',testChildFunc);
+            parentElement.addEventListener('appendChild',cbParent);
+
+            childElement.appendChild(test);
+
+            expect(cbChild.callCount).to.equal(1);
+            expect(cbParent.callCount).to.equal(0);
+
+            parentElement.innerHTML = inner;
+        });
+      
+        /* stopImmediatePropogation */
+        it("Should prevent any further events from firing when event.stopImmediatePropogation(); is called",function(){
+            var test = document.createElement('input'),
+                inner = parentElement.innerHTML,
+                cb = spy(),
+                cbSec = spy();
+            function testFunc(e)
+            {
+               e.stopImmediatePropagation();
+               cb.apply(this,arguments);
+            }
+
+            parentElement.addEventListener('appendChild',testFunc);
+            parentElement.addEventListener('appendChild',cbSec);
+
+            parentElement.appendChild(test);
+
+            expect(cb.callCount).to.equal(1);
+            expect(cbSec.callCount).to.equal(0);
+
+            parentElement.innerHTML = inner;
+            parentElement.removeEventListener('appendChild',testFunc);
+            parentElement.removeEventListener('appendChild',cbSec);
+        });
+      
+        /* stopped */
+        it("Should not fire a update listener if either element.stop(); or event.stop(); have been called prior execution",function(){
+          var test = document.createElement('input'),
+              inner = parentElement.innerHTML,
+              cb = spy(),
+              cbSec = spy(),
+              count = 0;
+             
+             function testFunc(e)
+             {
+                 count++;
+                 if(count === 2) e.stop();
+                 cb.apply(this,arguments);
+                 if(count < 3) expect(e.stopped).to.equal(true);
+                 if(count === 3)
+                 {
+                     parentElement.removeEventListener('appendChild',testFunc);
+                     parentElement.removeEventListener('appendChildupdate',cbSec);
+                 }
+             }
+             
+             parentElement.addEventListener('appendChild',testFunc);
+             parentElement.addEventListener('appendChildupdate',cbSec);
+             
+             parentElement.stop();
+             parentElement.appendChild(test);
+             expect(cb.callCount).to.equal(1);
+             expect(cbSec.callCount).to.equal(0);
+             
+             parentElement.appendChild(test);
+             expect(cb.callCount).to.equal(2);
+             expect(cbSec.callCount).to.equal(0);
+             
+             parentElement.innerHTML = inner;
+        });
     });
     
     describe("addEventListener", function(){
