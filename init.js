@@ -1076,8 +1076,11 @@ window.pikantny = (function(){
       /* define but add 'remove/addEventListener' on set, keep list of events and reorder on add */
       if(__defined)
       {
-          Object.defineProperty(HTMLElement.prototype,'on'+key,descriptorEvent(key));
-          Object.defineProperty(HTMLElement.prototype,'on'+key+'update',descriptorEvent(key,true));
+          var _desc = Object.getOwnPropertyDescriptor(HTMLElement.prototype,'on'+key),
+              _descUpdate = Object.getOwnPropertyDescriptor(HTMLElement.prototype,'on'+key+'update')
+        
+          if(!_desc) Object.defineProperty(HTMLElement.prototype,'on'+key,descriptorEvent(key));
+          if(!_descUpdate) Object.defineProperty(HTMLElement.prototype,'on'+key+'update',descriptorEvent(key,true));
       }
     }
     local.__pikantny__KeyList__.push(key);
