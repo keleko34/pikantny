@@ -40,7 +40,7 @@ window.pikantny = (function(){
       
       __GlobalList__ = ["EventTarget","Node","Element","HTMLElement"].concat(__HTMLList__),
       
-      __blocked__ = ['dispatchEvent','Symbol','constructor','__proto__'],
+      __blocked__ = ['dispatchEvent','Symbol','constructor','__proto__','stop'],
       
       /* helps with easier style listening changes as .style is an object created afterwards and acts differently than your standard */
       __CSSInlineList = Object.getOwnPropertyNames(document.body.style),
@@ -80,23 +80,28 @@ window.pikantny = (function(){
     
     function __set(v)
     {
-      var __event = init.event(__key);
+      var __element = this,
+          __event = init.event(__key);
       __event.oldValue = __oldValue = __descGet.call(this);
-      __event.stopped = this.__stopped__;
+      __event.stopped = (this.__stopped__ || false);
       __event.value = v;
+      __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
+        
       if(this.dispatchEvent(__event))
       {
         if(__isTextBased)
         {
           var __event_text = init.event('text');
               __event_text.oldValue = __oldValue;
-              __event_text.stopped = this.__stopped__;
+              __event_text.stopped = (this.__stopped__ || false);
               __event_text.value = v;
-          
+              __event_text.stop = function(){__event_text.stopped = __element.__stopped__ = true;};
+            
           var __event_html = init.event('html');
               __event_html.oldValue = __oldValue;
-              __event_html.stopped = this.__stopped__;
+              __event_html.stopped = (this.__stopped__ || false);
               __event_html.value = v;
+              __event_html.stop = function(){__event_html.stopped = __element.__stopped__ = true;};
           
           if(this.dispatchEvent(__event_text) && this.dispatchEvent(__event_html))
           {
@@ -106,13 +111,11 @@ window.pikantny = (function(){
             {
               var __event_text_update = init.event('text',true);
                   __event_text_update.oldValue = __oldValue;
-                  __event_text_update.stopped = this.__stopped__;
                   __event_text_update.value = v;
               this.dispatchEvent(__event_text_update);
           
               var __event_html_update = init.event('html',true);
                   __event_html_update.oldValue = __oldValue;
-                  __event_html_update.stopped = this.__stopped__;
                   __event_html_update.value = v;
               this.dispatchEvent(__event_html_update);
               
@@ -162,11 +165,12 @@ window.pikantny = (function(){
     {
       if(__descriptor.writable)
       {
-        var __event = init.event(__key);
+        var __element = this,
+            __event = init.event(__key);
         __event.oldValue = __descriptor.value;
-        __event.stopped = this.__stopped__;
+        __event.stopped = (this.__stopped__ || false);
         __event.value = v;
-        
+        __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
         
         if(this.dispatchEvent(__event))
         {
@@ -204,10 +208,12 @@ window.pikantny = (function(){
     
     function __set()
     {
-      var __event = init.event(__key);
+      var __element = this,
+          __event = init.event(__key);
       __event.arguments = arguments;
       __event.method = __key;
-      __event.stopped = this.__stopped__;
+      __event.stopped = (this.__stopped__ || false);
+      __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
       
       if(this.dispatchEvent(__event))
       {
@@ -217,13 +223,15 @@ window.pikantny = (function(){
               __event_text.oldValue = __oldValue = this.innerHTML;
               __event_text.arguments = arguments;
               __event_text.method = __key;
-              __event_text.stopped = this.__stopped__;
+              __event_text.stopped = (this.__stopped__ || false);
+              __event_text.stop = function(){__event_text.stopped = __element.__stopped__ = true;};
           
           var __event_html = init.event('html');
               __event_html.oldValue = __oldValue = this.innerHTML;
               __event_html.arguments = arguments;
               __event_html.method = __key;
-              __event_html.stopped = this.__stopped__;
+              __event_html.stopped = (this.__stopped__ || false);
+              __event_html.stop = function(){__event_html.stopped = __element.__stopped__ = true;};
           
           if(this.dispatchEvent(__event_text) && this.dispatchEvent(__event_html))
           {
@@ -354,21 +362,23 @@ window.pikantny = (function(){
     {
       if(this.nodeType === 2)
       {
-        var __event = init.event(this.nodeName);
+        var __element = this.ownerElement,
+            __event = init.event(this.nodeName);
         __event.oldValue = __oldValue = __descGet.call(this);
-        __event.stopped = this.ownerElement.__stopped__;
+        __event.stopped = (this.ownerElement.__stopped__ || false);
         __event.value = v;
+        __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
         
-        if(this.ownerElement.dispatchEvent(__event))
+        if(__element.dispatchEvent(__event))
         {
           __descSet.call(this,v);
 
-          if(!this.ownerElement.__stopped__)
+          if(!__element.__stopped__)
           {
             var __event_update = init.event(this.nodeName,true);
             __event_update.oldValue = __oldValue;
             __event_update.value = v;
-            this.ownerElement.dispatchEvent(__event_update);
+            __element.dispatchEvent(__event_update);
           }
         }
         this.ownerElement.__stopped__ = undefined;
@@ -389,12 +399,14 @@ window.pikantny = (function(){
   
   function descriptorSetAttribute(key,value)
   {
-    var __event = init.event(key),
+    var __element = this,
+        __event = init.event(key),
         __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined);
     __event.arguments = arguments;
-    __event.stopped = this.__stopped__;
+    __event.stopped = (this.__stopped__ || false);
     __event.oldValue = __oldValue;
     __event.value = value;
+    __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
     
     if(this.dispatchEvent(__event))
     {
@@ -428,13 +440,16 @@ window.pikantny = (function(){
   
   function descriptorRemoveAttribute(key)
   {
-    var __event = init.event(key),
+    var __element = this,
+        __event = init.event(key),
         __oldValue = this.attributes.getNamedItem(key).value,
         __action = null;
     __event.arguments = arguments;
-    __event.stopped = this.__stopped__;
+    __event.stopped = (this.__stopped__ || false);
     __event.oldValue = __oldValue;
     __event.value = undefined;
+    __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
+      
     if(this.dispatchEvent(__event))
     {
       __action = __removeAttribute.call(this,key);
@@ -525,8 +540,9 @@ window.pikantny = (function(){
       {
         var __event = init.event(__key);
         __event.oldValue = __oldValue = __value;
-        __event.stopped = __element.__stopped__;
+        __event.stopped = (__element.__stopped__ || false);
         __event.value = v;
+        __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
         
         if(__element.dispatchEvent(__event))
         {
@@ -638,8 +654,9 @@ window.pikantny = (function(){
 
     var __event_value = init.event('value');
         __event_value.oldValue = __oldValue;
-        __event_value.stopped = __target.__stopped__;
+        __event_value.stopped = (__target.__stopped__ || false);
         __event_value.value = __value;
+        __event_value.stop = function(){__event_value.stopped = __target.__stopped__ = true;};
 
     if(__target.dispatchEvent(__event_value))
     {
@@ -647,8 +664,10 @@ window.pikantny = (function(){
       {
         var __event_checked = init.event('checked');
             __event_checked.oldValue = __oldChecked;
-            __event_checked.stopped = __target.__stopped__;
+            __event_checked.stopped = (__target.__stopped__ || false);
             __event_checked.value = __checked;
+            __event_checked.stop = function(){__event_checked.stopped = __target.__stopped__ = true;};
+          
         if(__target.dispatchEvent(__event_checked))
         {
             if(!__target.__stopped__)
@@ -745,13 +764,15 @@ window.pikantny = (function(){
     
     var __event_value = init.event('value');
         __event_value.oldValue = __target.__prevalue__;
-        __event_value.stopped = __target.__stopped__;
+        __event_value.stopped = (__target.__stopped__ || false);
         __event_value.value = __target.value;
+        __event_value.stop = function(){__event_value.stopped = __target.__stopped__ = true;};
     
     var __event_index = init.event('selectedIndex');
         __event_index.oldValue = __target.__preindex__;
-        __event_index.stopped = __target.__stopped__;
+        __event_index.stopped = (__target.__stopped__ || false);
         __event_index.value = __target.selectedIndex;
+        __event_index.stop = function(){__event_index.stopped = __target.__stopped__ = true;};
     
     if(__target.dispatchEvent(__event_value) && __target.dispatchEvent(__event_index))
     {
@@ -1081,8 +1102,14 @@ window.pikantny = (function(){
   EventTarget.prototype.removeEventListener = descriptorRemoveEventListener;
   
   /* handle ability to stop an update */
-  if(EventTarget.prototype.stop === undefined) EventTarget.prototype.stop = function(){ this.__stopped__ = true; return this;};
-  
+  if(Element.prototype.stop === undefined)
+  {
+      Element.prototype.stop = function(){ 
+          this.__stopped__ = true; 
+          return this;
+      };
+  }
+    
   /* handle propagation */
   Event.prototype.stopImmediatePropagation = descriptorStopImmediatePropogation;
   Event.prototype.stoppedImmediatePropagation = false;

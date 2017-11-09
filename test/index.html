@@ -13,8 +13,13 @@
         </div>
       <div>
           <h2>Input tests:</h2>
-          <input class="test_subject__element__input" type="text" value="Input Element"/>
-          <input class="test_subject__element__checkbox" type="checkbox" value="Input Element"/>
+          <input class="test_subject__element__input" type="text" value="Input Element"/><br />
+          <input class="test_subject__element__checkbox" type="checkbox"/><br />
+          <textarea class="test_subject__element__textarea">Textarea Element</textarea><br />
+          <select class="test_subject__element__select"><br />
+            <option value="1">1</option>
+            <option value="2">2</option>
+          </select>
       </div>
     </div>
     <div class="test">
@@ -53,6 +58,8 @@
     <script type="text/javascript" src="/node_modules/benchmark/benchmark.js"></script>
     <script type="text/javascript" src="/node_modules/mocha/mocha.js"></script>
     <script type="text/javascript" src="/node_modules/chai/chai.js"></script>
+    <script type="text/javascript" src="/node_modules/sinon/pkg/sinon.js"></script>
+    <script type="text/javascript" src="/node_modules/sinon-chai/lib/sinon-chai.js"></script>
     <script type="text/javascript" src="/test/tests/usability.js"></script>
     <script type="text/javascript" src="/test/tests/performance.js"></script>
   </body>
