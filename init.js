@@ -27,6 +27,8 @@
   * __stopped__
   
   *** issues with styles resetting the descriptor, need to figure out
+  
+  *** addEventListenerupdate fires itself, need to circumvent
 */
 
 "use strict";
@@ -266,6 +268,9 @@ window.pikantny = (function(){
         else
         {
           __action = __descVal.apply(this,arguments);
+          
+          if(__key === 'addEventListener' && arguments[0] === 'addEventListenerupdate') this.stop();
+          
           if(!this.__stopped__)
           {
             var __event_update = init.event(__key,true);
