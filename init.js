@@ -20,12 +20,6 @@
   * __pikantny__KeyList__
   * events
   
-  Event
-  * stop
-  * stoppedPropogation
-  * stoppedImmediatePropogation
-  * __stopped__
-  
   *** issues with styles resetting the descriptor, need to figure out
   
   *** addEventListenerupdate fires itself, need to circumvent
@@ -42,7 +36,9 @@ window.pikantny = (function(){
       
       __GlobalList__ = ["EventTarget","Node","Element","HTMLElement"].concat(__HTMLList__),
       
-      __blocked__ = ['dispatchEvent','Symbol','constructor','__proto__','stop','length','setAttribute','removeAttribute'],
+      __blocked__ = [
+        'dispatchEvent','Symbol','constructor','__proto__','stop','length','setAttribute','removeAttribute', 'addEventListener','removeEventListener','setProperty','removeProperty','getPropertyValue'
+      ],
       
       /* helps with easier style listening changes as .style is an object created afterwards and acts differently than your standard */
       __CSSInlineList = Object.getOwnPropertyNames(document.body.style),
@@ -64,8 +60,6 @@ window.pikantny = (function(){
       __removeEventListener = EventTarget.prototype.removeEventListener,
       __setAttribute = Element.prototype.setAttribute,
       __removeAttribute = Element.prototype.removeAttribute,
-      __setProperty = CSSStyleDeclaration.prototype.setProperty,
-      __removeProperty = CSSStyleDeclaration.prototype.removeProperty,
       __valueSelectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value'),
       __valueInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'),
       __checkedInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked');
@@ -153,6 +147,13 @@ window.pikantny = (function(){
     this.parentAttrUpdateListeners = {};
     this.injectedStyle = {};
     this.events = {};
+    this.stop = undefined;
+    this.inlinestyle = undefined;
+    this.preValue = '';
+    this.descValue = undefined;
+    this.preChecked = '';
+    this.descChecked = undefined;
+    this.isPressed = false;
   }
   
   function _attachLocalBinders(el)
@@ -263,7 +264,6 @@ window.pikantny = (function(){
     
     function set(v)
     {
-      _attachLocalBinders(this);
       __oldValue = __descGet.call(this);
       __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
       if(__set(this,__key,v,__oldValue,__extensions.stop))
@@ -464,7 +464,6 @@ window.pikantny = (function(){
     };
   }
   
-  
   /* for when setAttribute method is ran to apply to standard listeners as well and not just `setAttribute` method listeners */
   function descriptorSetAttribute(key,value)
   {
@@ -472,73 +471,84 @@ window.pikantny = (function(){
         __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this)),
         __action;
     
-    if(_setStandard(this,'setAttribute',undefined,undefined,__extensions.stop,arguments))
+    if(_setStandard(this,'setAttribute',undefined,undefined,__extensions.stop,arguments) && _setStandard(this,key,value,__oldValue,__extensions.stop))
     {
        if(key === 'style') /* handle style changes, if rejected discontinue this, else continue */
        
-       if(_setStandard(this,key,value,__oldValue,__extensions.stop))
+       __action = __setAttribute.call(this,key,value);
+       if(!__extensions.stop)
        {
-         __action = __setAttribute.call(this,key,value);
-         if(!__extensions.stop)
-         {
-           _updateStandard(this,'setAttribute',undefined,undefined,__extensions.stop,arguments,__action);
-           if(key === 'style') /* handle style update changes, if rejected discontinue this, else continue */
-           _updateStandard(this,'setAttribute',undefined,undefined,__extensions.stop,arguments,__action);
-         }
+         _updateStandard(this,'setAttribute',undefined,undefined,__extensions.stop,arguments,__action);
+         if(key === 'style') /* handle style update changes, if rejected discontinue this, else continue */
+         _updateStandard(this,key,value,__oldValue,__extensions.stop,arguments,__action);
        }
     }
     __extensions.stop = undefined;
     return undefined;
   }
-  
-  /******* left off here ********/
     
   function descriptorRemoveAttribute(key)
   {
-    var __element = this,
-        __event = init.event(key),
-        __oldValue = this.attributes.getNamedItem(key).value,
-        __action = null;
-    __event.arguments = arguments;
-    __event.stopped = (this.__stopped__ || false);
-    __event.oldValue = __oldValue;
-    __event.value = undefined;
-    __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
-      
-    if(this.dispatchEvent(__event))
+    var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined),
+        __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this)),
+        __action;
+    
+    if(_setStandard(this,'removeAttribute',undefined,undefined,__extensions.stop,arguments))
     {
-      __action = __removeAttribute.call(this,key);
-      if(!this.__stopped__)
-      {
-        var __event_update = init.event(key,true);
-        __event_update.arguments = arguments;
-        __event_update.action = __action;
-        __event_update.oldValue = __oldValue;
-        __event_update.value = undefined;
-        this.dispatchEvent(__event_update);
-      }
+        if(key === 'style') /* handle style changes, if rejected discontinue this, else continue */
+        
+        if(_setStandard(this,key,undefined,__oldValue,__extensions.stop))
+        {
+           __action = __removeAttribute.call(this,key);
+           if(!__extensions.stop)
+           {
+             _updateStandard(this,'removeAttribute',undefined,undefined,__extensions.stop,arguments,__action);
+             if(key === 'style') /* handle style update changes, if rejected discontinue this, else continue */
+             _updateStandard(this,key,undefined,__oldValue,__extensions.stop,arguments,__action);
+           }
+        }
     }
+    __extensions.stop = undefined;
     
     return __action;
   }
-  
+    
+  /* process Event controls all listener access */
   function descriptorAddEventListener(key,func)
   {
-    var _key = processEvent.apply(this,arguments);
-    if(this.events === undefined) this.events = {};
-    if(this.events[_key] === undefined) this.events[_key] = [];
-    if(this.events[_key].indexOf(func) === -1) this.events[_key].push(func);
-    return __addEventListener.call(this,_key,func);
+    var __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this)),
+        __action;
+    
+    if(_setStandard(this,'addEventListener',undefined,undefined,__extensions.stop,arguments))
+    {
+      __action = __addEventListener.call(this,_key,func);
+      processEvent.apply(this,arguments);
+      
+      if(!__extensions.stop)
+      {
+        _updateStandard(this,'addEventListener',undefined,undefined,__extensions.stop,arguments,__action);
+      }
+    }
+    __extensions.stop = undefined;
+    return __action;
   }
   
   function descriptorRemoveEventListener(key,func)
   {
-    var _key = processEventRemoval.apply(this,arguments);
-    if(this.events === undefined) this.events = {};
-    if(this.events[_key] === undefined) this.events[_key] = [];
-    this.events[_key].splice(this.events[_key].indexOf(func),1);
-    if(this.events[_key].length === 0) this.events[_key] = undefined;
-    return __removeEventListener.call(this,_key,func);
+    var __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this)),
+        __action;
+    
+    if(_setStandard(this,'removeEventListener',undefined,undefined,__extensions.stop,arguments))
+    {
+      __action = __removeEventListener.call(this,_key,func);
+      processEventRemoval.apply(this,arguments)
+      if(!__extensions.stop)
+      {
+        _updateStandard(this,'removeEventListener',undefined,undefined,__extensions.stop,arguments,__action);
+      }
+    }
+    __extensions.stop = undefined;
+    return __action;
   }
   
   function getInlineKey(key)
@@ -560,109 +570,9 @@ window.pikantny = (function(){
     
     return _key.toLowerCase();
   }
-  
-  function descriptorInlineStyle(descriptor,element,key,keyProper)
-  {
-    var __descriptor = descriptor,
-        __writable = descriptor.writable,
-        __key = key,
-        __keyProper = keyProper,
-        __element = element,
-        __oldValue = descriptor.value,
-        __value = descriptor.value;
     
-    function __get()
-    {
-      return __value;
-    }
-    
-    function __set(v)
-    {
-      if(__writable)
-      {
-        var __event = init.event(__key);
-        __event.oldValue = __oldValue = __value;
-        __event.stopped = (__element.__stopped__ || false);
-        __event.value = v;
-        __event.stop = function(){__event.stopped = __element.__stopped__ = true;};
-        
-        if(__element.dispatchEvent(__event))
-        {
-          if(typeof v === 'string' && v.length === 0)
-          {
-            __removeProperty.call(this,__keyProper);
-          }
-          else
-          {
-            __value = v;
-            __setProperty.call(this,__keyProper,v);
-          }
-
-          if(!__element.__stopped__)
-          {
-            var __event_update = init.event(__key,true);
-            __event_update.oldValue = __oldValue;
-            __event_update.value = v;
-            
-            __element.dispatchEvent(__event_update);
-          }
-        }
-        __element.__stopped__ = undefined;
-      }
-    }
-    
-    return {
-      get:__get,
-      set:__set,
-      enumerable:__descriptor.enumerable,
-      configurable:true
-    }
-  }
-  
-  function descriptorCSSText(descriptor,key)
-  {
-    var __descriptor = descriptor,
-        __key = key,
-        __descGet = __descriptor.get,
-        __descSet = __descriptor.set,
-        __oldValue;
-    
-    function __set(v)
-    {
-      __oldValue = __descGet.call(this);
-      
-      var __cssRules = getCSSTextChanges(__oldValue,v);
-      for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
-      {
-        key = keys[x];
-        this.style[key] = __cssRules[key];
-      }
-    }
-    
-    return {
-      get:__descGet,
-      set:__set,
-      enumerable:__descriptor.enumerable,
-      configurable:true
-    };
-  }
-  
-  function descriptorCSSSetProperty(key, value, priority)
-  {
-    var __inlineKey = getInlineKey(key);
-    this[__inlineKey] = value + (priority ? '!'+priority : '');
-    return undefined;
-  }
-  
-  function descriptorCSSRemoveProperty(key)
-  {
-    var __inlineKey = getInlineKey(key);
-    this[__inlineKey] = '';
-    return undefined;
-  }
-  
   function getCSSTextChanges(oldValue,value)
-  {
+  { 
     var __cssRules = value.split(';').reduce(function(style,v,x){
           var split = v.split(':'),
           prop = getInlineKey(split[0]),
@@ -681,7 +591,192 @@ window.pikantny = (function(){
     
     return __cssRules;
   }
+    
+  function descriptorInlineStyle(descriptor,element,key)
+  {
+    var __descriptor = descriptor,
+        __proto = element.style,
+        __removeProperty = __proto.removeProperty,
+        __setProperty = __proto.setProperty,
+        __writable = descriptor.writable,
+        __keyInline = getInlineKey(key),
+        __keyStyle = getStyleKey(key),
+        __element = element,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __extensions = {},
+        __oldValue = descriptor.value,
+        __value = descriptor.value;
+    
+    function get()
+    {
+      return __value;
+    }
+    
+    function set(v)
+    {
+      if(__writable)
+      {
+        __oldValue = __value;
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
+        if(__set(__element,__keyInline,v,__oldValue,__extensions.stop) && __set(__element,__keyStyle,v,__oldValue,__extensions.stop))
+        {
+          __value = v;
+          if(typeof v === 'string' && v.length === 0)
+          {
+            __extensions.inlinestyle = true;
+            __removeProperty(__keyStyle);
+          }
+          else
+          {
+            __extensions.inlinestyle = true;
+            __setProperty(__keyStyle,v);
+          }
+
+          if(!__extensions.stop)
+          {
+            __update(__element,__keyInline,v,__oldValue);
+            __update(__element,__keyStyle,v,__oldValue);
+          }
+        }
+        __extensions.stop = undefined;
+      }
+    }
+    
+    return {
+      get:get,
+      set:set,
+      enumerable:descriptor.enumerable,
+      configurable:true
+    }
+  }
+    
+  function descriptorCSSText(descriptor,element,key)
+  {
+    var __descriptor = descriptor,
+        __key = key,
+        __element = element,
+        __proto = element.style,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __descGet = __descriptor.get,
+        __extensions = {},
+        __oldValue;
+    
+    function set(v)
+    {
+      __oldValue = __descGet.call(this);
+      __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
+      if(__set(__element,__key,v,__oldValue,__extensions.stop))
+      {
+        var __cssRules = getCSSTextChanges(__oldValue,v);
+        for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+        {
+          key = keys[x];
+          this.style[key] = __cssRules[key];
+        }
+        if(!__extensions.stop)
+        {
+          __update(__element,__key,v,__oldValue);
+        }
+      }
+      __extensions.stop = undefined;
+    }
+    
+    return {
+      get:descriptor.get,
+      set:set,
+      enumerable:descriptor.enumerable,
+      configurable:true
+    };
+  }
+    
+    /* may not be needed anymore */
+  function descriptorCSSSetProperty(descriptor, element, key)
+  {
+    var __descriptor = descriptor,
+        __element = element,
+        __proto = element.style,
+        __descSet = descriptor.value,
+        __keyInline = getInlineKey(key),
+        __keyStyle = getStyleKey(key),
+        __set = _setStandard,
+        __update = _updateStandard,
+        __extensions = {},
+        __action = undefined;
+    
+    function set(key,v,priority)
+    {
+      __extensions = (_elemenet.__pikantnyExtensions__ || _attachLocalBinders(__element));
+      
+      if(!__extensions.inlinestyle)
+      {
+        if(__set(__element,__key,undefined,undefined,__extensions.stop,arguments))
+        {
+          __action = __descSet.apply(this,arguments);
+          if(!__extensions.stop) __update(__element,__key,undefined,undefined,__extensions.stop,arguments,__action);
+        }
+        __extensions.stop = undefined;
+      }
+      else
+      {
+        __extensions.inlinestyle = undefined;
+        return __descSet.apply(this,arguments);
+      }
+    }
+    
+    return {
+      value:set,
+      writable:descriptor.writable,
+      enumerable:descriptor.enumerable,
+      configurable:true
+    };
+  }
   
+    /* may not be needed anymore */
+  function descriptorCSSRemoveProperty(descriptor, element, key)
+  {
+    var __descriptor = descriptor,
+        __element = element,
+        __proto = element.style,
+        __descSet = descriptor.value,
+        __keyInline = getInlineKey(key),
+        __keyStyle = getStyleKey(key),
+        __set = _setStandard,
+        __update = _updateStandard,
+        __extensions = {},
+        __action = undefined;
+    
+    function set(key)
+    {
+      __extensions = (_elemenet.__pikantnyExtensions__ || _attachLocalBinders(__element));
+      
+      if(!__extensions.inlinestyle)
+      {
+        if(__set(__element,__key,undefined,undefined,__extensions.stop,arguments))
+        {
+          __action = __descSet.apply(this,arguments);
+          if(!__extensions.stop) __update(__element,__key,undefined,undefined,__extensions.stop,arguments,__action);
+        }
+        __extensions.stop = undefined;
+      }
+      else
+      {
+        __extensions.inlinestyle = undefined;
+        return __descSet.apply(this,arguments);
+      }
+    }
+    
+    return {
+      value:set,
+      writable:descriptor.writable,
+      enumerable:descriptor.enumerable,
+      configurable:true
+    };
+  }
+    
+  /******* left off here ********/
+    
   /* must be done this way due to keyCodes not being cross platoform, may be looked into later */
   function runInputEvents(e)
   {
@@ -1150,22 +1245,17 @@ window.pikantny = (function(){
   if(Element.prototype.stop === undefined)
   {
       Element.prototype.stop = function(){ 
-          this.__stopped__ = true; 
+          var __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
+          __extensions.stop = true;
           return this;
       };
   }
-    
-  /* handle propagation */
-  Event.prototype.stopImmediatePropagation = descriptorStopImmediatePropogation;
-  Event.prototype.stoppedImmediatePropagation = false;
-  
-  Event.prototype.stopPropagation = descriptorStopPropogation;
-  Event.prototype.stoppedPropagation = false;
   
   /* handle attribute setting */
   Element.prototype.setAttribute = descriptorSetAttribute;
   Element.prototype.removeAttribute = descriptorRemoveAttribute;
   
+    /* sounds fishy */
   Object.defineProperty(Node.prototype,'nodeValue',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'nodeValue'),'nodeValue'));
   Object.defineProperty(Node.prototype,'textContent',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'textContent'),'textContent'));
   
