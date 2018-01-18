@@ -8,19 +8,19 @@
   - globalized events - window? v/
   - inputs setting values v/
   - all text based operations fire one 'text|html' v/
-  - if prop doesn't exist create it on listener (default observable)
+  - if prop doesn't exist create it on listener (default observable, attribute?)
   - add/remove observables (default/function)
   
   - rewrite to be dom extension hate friendly, do it for the haters
   
   Major
-  * __pikantny__prevalue__
-  * __pikantny__precheck__
+  * __pikantnyExtensions__
   * __pikantny__styleList__
   * __pikantny__KeyList__
   * events
   
-  *** issues with styles resetting the descriptor, need to figure out
+  *** issues with styles resetting the descriptor,
+      found chrome bug, ref: https://bugs.chromium.org/p/chromium/issues/detail?id=782776
   
   *** addEventListenerupdate fires itself, need to circumvent
 */
@@ -36,6 +36,7 @@ window.pikantny = (function(){
       
       __GlobalList__ = ["EventTarget","Node","Element","HTMLElement"].concat(__HTMLList__),
       
+      /* items that should not be injected as they disrupt key actions */
       __blocked__ = [
         'dispatchEvent','Symbol','constructor','__proto__','stop','length','setAttribute','removeAttribute', 'addEventListener','removeEventListener','setProperty','removeProperty','getPropertyValue'
       ],
@@ -56,34 +57,46 @@ window.pikantny = (function(){
       __all__ = '*';
   
   /* Backup descriptors */
+  
+  /* backup to allow complex listening actions */
   var __addEventListener = EventTarget.prototype.addEventListener,
       __removeEventListener = EventTarget.prototype.removeEventListener,
+      
+      /* backup so we can overwrite the original to listen to changes just as properties */
       __setAttribute = Element.prototype.setAttribute,
       __removeAttribute = Element.prototype.removeAttribute,
+      
+      
       __valueSelectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value'),
       __valueInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'),
       __checkedInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked');
   
   
-  /* Helper method to loop through listeners and run them */
+  /* Helper method to loop through listeners and run them, node listeners */
   function loopListener(looper,e)
   {
+    /* listeners array */
     var _looper = looper,
         _len = looper.length,
         _e = e,
         _x;
     for(_x=0;_x<_len;_x++)
     {
+      /* loop and call listeners */
       looper[_x](_e);
+      
+      /* if stopImmediatePropogation method was called then we stop calling listeners on this node  */
       if(_e.__stopImmediatePropogation__ !== undefined) break;
     }
   }
   
-  /* Helper method to loop through all bubbled listeners and run them */
+  /* Helper method to loop through all bubbled listeners and run them parent nodes */
   function loopBubbledListener(looper,e)
   {
+    /* if either stopImmediatePropogation or stopPropogation were called we don't run bubbled listeners */
     if(e.__stopPropogation__ !== undefined) return;
     
+    /* bubbled listeners array */
     var _looper = looper,
         _len = looper.length,
         _e = e,
@@ -91,8 +104,13 @@ window.pikantny = (function(){
     
     for(_x=0;_x<_len;_x++)
     {
+      /* get the parent node for the event */
       _e.target = looper[_x].parent;
+      
+      /* call bubbled parent node listeners */
       looper[_x].func(_e);
+      
+      /* stop bubbling if stopImmediatePropogation or stopPropogation is called */
       if(_e.__stopPropogation__ !== undefined) break;
     }
   }
@@ -100,12 +118,15 @@ window.pikantny = (function(){
   /* Helper method to loop through all listeners and return if a method exists */
   function loopListenerCheck(looper,func)
   {
+    /* listener array to check */
     var _looper = looper,
         _len = looper.length,
         _func = func,
         _x;
+    
     for(_x=0;_x<_len;x++)
     {
+      /* convert function to string and compare */
       if(_looper[x].toString() === _func.toString()) return true;
     }
     return false;
@@ -114,41 +135,114 @@ window.pikantny = (function(){
   /* The event object that gets passed to each listener */
   function changeEvent(v)
   {
-    this.stopPropagation = function(){this.__stopPropogation__ = !this.bubbles = false;};
-    this.stopImmediatePropagation = function(){this.__stopImmediatePropogation__ = this.__stopPropogation__ = !this.bubbles = false;};
-    this.preventDefault = function(){this.__preventDefault__ = this.defaultPrevented = true;};
-    this.stop = function(){this.target.__pikantnyExtensions__.stop = this.__stopped__ = true;}
+    /* stops bubbling of event */
+    this.stopPropagation = function()
+    {
+      this.bubbles = false;
+      this.__stopPropogation__ = !this.bubbles;
+    };
+    
+    /* stops event */
+    this.stopImmediatePropagation = function()
+    {
+      this.bubbles = false;
+      this.__stopImmediatePropogation__ = this.__stopPropogation__ = !this.bubbles;
+    };
+    
+    /* prevent the default action */
+    this.preventDefault = function()
+    {
+      this.__preventDefault__ = this.defaultPrevented = true;
+    };
+    
+    /* stop the update listeners from firing */
+    this.stop = function()
+    {
+      this.target.__pikantnyExtensions__.stop = this.__stopped__ = true;
+    }
+    
+    /* if the event can be cancelled (not implemented) */
     this.cancelable = (v.cancelable || true);
+    
+    /* if default was prevented (not implemented) */
     this.defaultPrevented = false;
+    
+    /* if the event can bubble */
     this.bubbles = (v.bubbles || true);
+    
+    /* the current value of the property */
     this.value = v.value;
+    
+    /* the old value of the property */
     this.oldValue = v.oldValue;
+    
+    /* the target node the event is being ran on */
     this.target = v.target;
+    
+    /* the name of the property */
     this.attr = v.attr;
+    
+    /* passed arguments if the property was a method */
     this.arguments = v.arguments;
+    
+    /* the returned result of running that method (update only) */
     this.action = v.action;
+    
+    /* the original element that fired the event */
     this.srcElement = v.srcElement;
+    
+    /* the name of the listener */
     this.type = (v.type === 'update' ? v.attr+v.type : v.attr);
+    
+    /* current window context */
     this.view = window;
     
+    /* tells if the update listeners have been stopped or not */
     if(v.stop) this.__stopped__ = true;
   }
 
   /* This holds all listeners associated with a particular element */
   function _localBinders()
   {
+    /* node's property listeners */
     this.attrListeners = {};
+    
+    /* node's property update listeners */
     this.attrUpdateListeners = {};
-    this.styleListeners = {};
-    this.styleUpdateListeners = {};
-    this.parentStyleListeners = {};
-    this.parentStyleUpdateListeners = {};
+    
+    /* any bubbled property listeners */
     this.parentAttrListeners = {};
+    
+    /* any bubbled property update listeners */
     this.parentAttrUpdateListeners = {};
+    
+    /* node's style listeners */
+    this.styleListeners = {};
+    
+    /* node's style update listeners */
+    this.styleUpdateListeners = {};
+    
+    /* any bubbled style listeners */
+    this.parentStyleListeners = {};
+    
+    /* any bubbled style update listeners */
+    this.parentStyleUpdateListeners = {};
+    
+    /* current injected style descriptors */
     this.injectedStyle = {};
+    
+    /* all events tied to the node */
     this.events = {};
+    
+    /* Extra logic properties */
+    
+    /* if the stop update listeners has been called */
     this.stop = undefined;
+    
+    /* if an inline style event has been called, tells setProperty not to run listeners as the style already did */
     this.inlinestyle = undefined;
+    
+    /* input listener helpers */
     this.preValue = '';
     this.descValue = undefined;
     this.preChecked = '';
@@ -156,58 +250,19 @@ window.pikantny = (function(){
     this.isPressed = false;
   }
   
+  /* checks if the element has the above extensions, if not it adds them */
   function _attachLocalBinders(el)
   {
     if(typeof el.__pikantnyExtensions__ === 'undefined') Object.defineProperty(el,'__pikantnyExtensions__',descriptorHidden(new _localBinders()));
     return el.__pikantnyExtensions__;
   }
   
-  /* SECTION DESCRIPTOR STANDARD/VALUE/FUNCTION */ 
-  function _updateStandard(el, prop, val, oldValue, args, action)
-  {
-    var e = new changeEvent({
-        value: val,
-        oldValue: oldValue,
-        attr: prop,
-        type: 'update',
-        target: el,
-        srcElement: el,
-        arguments: args,
-        action: action
-    });
-    
-    if(el.__pikantnyExtensions__ !== undefined)
-    {
-      var localAttrListeners = el.__pikantnyExtensions__.attrUpdateListeners,
-          localParentAttrListeners = el.__pikantnyExtensions__.parentAttrUpdateListeners;
-      
-      if(localAttrListeners[prop] !== undefined)
-      {
-        loopListener(localAttrListeners[prop],e);
-      }
-      
-      if(e.__stopImmediatePropogation__ === undefined && localAttrListeners[__all__+'update'] !== undefined)
-      {
-        loopListener(localAttrListeners[__all__+'update'],e);
-      }
-      
-      if(e.__stopPropogation__ === undefined && localParentAttrListeners[prop] !== undefined)
-      {
-        loopBubbledListener(localParentAttrListeners[prop],e);
-      }
-      
-      if(e.__stopPropogation__ === undefined && localParentAttrListeners[__all__+'update'] !== undefined)
-      {
-        loopBubbledListener(localParentAttrListeners[__all__+'update'],e);
-      }
-    }
-    
-    if(e.__preventDefault__ !== undefined) return false;
-    return true;
-  }
+  /* SECTION DESCRIPTOR STANDARD/VALUE/FUNCTION */
   
+  /* runs the associated pre value set listeners */
   function _setStandard(el, prop, val, oldValue, stop, args, action)
   {
+    /* create event */
     var e = new changeEvent({
         value: val,
         oldValue: oldValue,
@@ -220,26 +275,32 @@ window.pikantny = (function(){
         action: action
     });
     
+    /* check if the node is extended */
     if(el.__pikantnyExtensions__ !== undefined)
     {
+      /* get standard and bubbled listeners */
       var localAttrListeners = el.__pikantnyExtensions__.attrListeners,
           localParentAttrListeners = el.__pikantnyExtensions__.parentAttrListeners;
       
+      /* loop local listeners first */
       if(localAttrListeners[prop] !== undefined)
       {
         loopListener(localAttrListeners[prop],e);
       }
       
+      /* if a * (all) listener was added, loop them */
       if(e.__stopImmediatePropogation__ === undefined && localAttrListeners[__all__] !== undefined)
       {
         loopListener(localAttrListeners[__all__],e);
       }
       
+      /* loop bubbled listeners */
       if(e.__stopPropogation__ === undefined && localParentAttrListeners[prop] !== undefined)
       {
         loopBubbledListener(localParentAttrListeners[prop],e);
       }
       
+      /* if a * (all) bubbled listener was added, loop them */
       if(e.__stopPropogation__ === undefined && localParentAttrListeners[__all__] !== undefined)
       {
         loopBubbledListener(localParentAttrListeners[__all__],e);
@@ -250,9 +311,61 @@ window.pikantny = (function(){
     return true;
   }
   
-  /* for all standard prototypes */
+  /* runs the associated post value set update listeners */
+  function _updateStandard(el, prop, val, oldValue, args, action)
+  {
+    /* create event */
+    var e = new changeEvent({
+        value: val,
+        oldValue: oldValue,
+        attr: prop,
+        type: 'update',
+        target: el,
+        srcElement: el,
+        arguments: args,
+        action: action
+    });
+    
+    /* check if the node is extended */
+    if(el.__pikantnyExtensions__ !== undefined)
+    {
+      /* get standard and bubbled update listeners */
+      var localAttrListeners = el.__pikantnyExtensions__.attrUpdateListeners,
+          localParentAttrListeners = el.__pikantnyExtensions__.parentAttrUpdateListeners;
+      
+      /* loop local listeners first */
+      if(localAttrListeners[prop] !== undefined)
+      {
+        loopListener(localAttrListeners[prop],e);
+      }
+      
+      /* if a * (all) listener was added, loop them */
+      if(e.__stopImmediatePropogation__ === undefined && localAttrListeners[__all__+'update'] !== undefined)
+      {
+        loopListener(localAttrListeners[__all__+'update'],e);
+      }
+      
+      /* loop bubbled listeners */
+      if(e.__stopPropogation__ === undefined && localParentAttrListeners[prop] !== undefined)
+      {
+        loopBubbledListener(localParentAttrListeners[prop],e);
+      }
+      
+      /* if a * (all) bubbled listener was added, loop them */
+      if(e.__stopPropogation__ === undefined && localParentAttrListeners[__all__+'update'] !== undefined)
+      {
+        loopBubbledListener(localParentAttrListeners[__all__+'update'],e);
+      }
+    }
+    
+    if(e.__preventDefault__ !== undefined) return false;
+    return true;
+  }
+  
+  /* for all standard prototypes that contain getters and setters */
   function descriptorStandard(descriptor,key)
   {
+    /* closured descriptor, used methods and local var's for increased perf */
     var __descriptor = descriptor,
         __key = key,
         __descSet = __descriptor.set,
@@ -262,18 +375,30 @@ window.pikantny = (function(){
         __extensions = {},
         __oldValue;
     
+    /* main setter method */
     function set(v)
     {
+      /* get the current value of this property */
       __oldValue = __descGet.call(this);
+      
+      /* get the extensions for this node */
       __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
+      
+      /* run the pre value set listeners */
       if(__set(this,__key,v,__oldValue,__extensions.stop))
       {
+        /* if the default was not prevented, set the value */
         __descSet.call(this,v);
+        
+        /* if update listeners were not stopped run them */
         if(!__extensions.stop) __update(this,__key,v,__oldValue);
       }
+      
+      /* reset update stop */
       __extensions.stop = undefined;
     }
     
+    /* return new descriptor */
     return {
       get:descriptor.get,
       set:set,
@@ -282,9 +407,10 @@ window.pikantny = (function(){
     }
   }
   
-  /* for value based prototypes */
+  /* for value based prototypes that contain value and writable, converts them to getter setter descriptors */
   function descriptorValue(descriptor,key)
   {
+    /* closured descriptor, used methods and local var's for increased perf */
     var __descriptor = descriptor,
         __key = key,
         __update = _updateStandard,
@@ -293,26 +419,40 @@ window.pikantny = (function(){
         __writable = descriptor.writable,
         __oldValue;
     
+    /* getter method, returns current value */
     function get()
     {
       return __descriptor.value;
     }
     
+    /* main setter method */
     function set(v)
     {
+      /* if the property was not supposed to be writable do not let it to be set */
       if(__writable)
       {
+        /* get the current value of this property */
         __oldValue = __descriptor.value;
+        
+        /* get the extensions for this node */
         __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
+        
+        /* run the pre value set listeners */
         if(__set(this,__key,v,__oldValue,__extensions.stop))
         {
+          /* if the default was not prevented, set the value */
           __descriptor.value = v;
+          
+          /* if update listeners were not stopped run them */
           if(!__extensions.stop) __update(this,__key,v,__oldValue);
         } 
       }
+      
+      /* reset update stop */
       __extensions.stop = undefined;
     }
     
+    /* return new descriptor */
     return {
       get:get,
       set:set,
@@ -321,9 +461,10 @@ window.pikantny = (function(){
     }
   }
   
-  /* for function based prototypes */
+  /* for function based prototypes that contain value and writable and the default value is a function */
   function descriptorFunction(descriptor,key)
   {
+    /* closured descriptor, used methods and local var's for increased perf */
     var __descriptor = descriptor,
         __key = key,
         __descVal = descriptor.value,
@@ -332,18 +473,30 @@ window.pikantny = (function(){
         __extensions = {},
         __action;
     
+    /* the new function that will be used as the value for this descriptor */
     function set()
     {
+      /* get the extensions for this node */
       __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
+      
+      /* run the pre method activation listeners */
       if(__set(this,__key,undefined,undefined,__extensions.stop,arguments))
       {
+        /* run the associated method */
         __action = __descVal.apply(this,arguments);
+        
+        /* we don't want to create a circular reference */
         if(__key === 'addEventListener' && arguments[0] === 'addEventListenerupdate') __extensions.stop = true;
+        
+        /* if update listeners were not stopped run them */
         if(!__extensions.stop) __update(this,__key,v,__oldValue,arguments,__action);
       }
+      
+      /* reset update stop */
       __extensions.stop = undefined;
     }
     
+    /* return new descriptor */
     return {
       value:set,
       writable:descriptor.writable,
@@ -355,6 +508,7 @@ window.pikantny = (function(){
   /* hidden properties */
   function descriptorHidden(value)
   {
+    /* creates a descriptor that is not loopable/enumerable */
     return {
       value:value,
       writable:true,
@@ -366,47 +520,60 @@ window.pikantny = (function(){
   /* controls keeping track of all events on an element, events are viewable via pikantny.events(element) */
   function listenerEventIntersect(el,key,value,remove,oldValue)
   {
+    /* get extension and all associated events */
     var __extensions = (el.__pikantnyExtensions__ || _attachLocalBinders(el)),
         __events = __extensions.events;
-        
+    
+    /* create associated events array if it does not exist */
     if(typeof __events[key] === 'undefined') __events[key] = [];
     
+    /* if we are updating or removing an event we must remove the old one */
     if(oldValue && __events[key].indexOf(oldValue) !== -1 || !!remove) __events[key].splice(__events[key].indexOf((oldValue || value)),1);
     
+    /* if we are not just removing an event add it to the proper array */
     if(!remove) __events[key].push(value);
-  }
-  
-  function _updateEvent(el,prop,val,oldValue)
-  {
-    listenerEventIntersect(el,prop,val,false,oldValue);
-    
-    return _updateStandard(el,prop,val,oldValue);
   }
   
   /* applied for inline `onclick`, `onkeyup`, etc. like properties */
   function descriptorEvent(descriptor,key)
   {
+    /* closured descriptor, used methods and local var's for increased perf */
     var __descriptor = descriptor,
         __key = key,
         __descSet = __descriptor.set,
         __descGet = __descriptor.get,
-        __update = _updateEvent,
+        __update = _updateStandard,
         __set = _setStandard,
         __extensions = {},
         __oldValue;
     
+    /* main setter method */
     function set(v)
     {
+      /* get the old event */
       __oldValue = __descGet.call(this);
+      
+      /* get the current extensions */
       __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
+      
+      /* run the pre value set listeners */
       if(__set(this,__key,v,__oldValue,__extensions.stop))
       {
+        /* set the new value */
         __descSet.call(this,v);
+        
+        /* if update listeners were not stopped run them */
         if(!__extensions.stop) __update(this,__key,v,__oldValue);
+        
+        /* add to event object for viewing */
+        listenerEventIntersect(this,__key,v,false,__oldValue);
       }
+      
+      /* reset update stop */
       __extensions.stop = undefined;
     }
     
+    /* return new descriptor */
     return {
       get:descriptor.get,
       set:set,
@@ -415,9 +582,12 @@ window.pikantny = (function(){
     };
   }
   
-  /* applied for if attributes are set via the: element.attributes NamedNodeMap */
+  /*** Left off commenting here, need to update style ref ***/
+  
+  /* applied for if attributes are set via the: element.attributes NamedNodeMap, Examples: element.attributes.class.nodeValue,element.attributes.class.textContent */
   function descriptorAttribute(descriptor,key)
   {
+    /* closured descriptor, used methods and local var's for increased perf */
     var __descriptor = descriptor,
         __key = key,
         __descSet = __descriptor.set,
@@ -425,37 +595,66 @@ window.pikantny = (function(){
         __set = _setStandard,
         __update = _updateStandard,
         __element = {},
-        __environment = {},
-        __oldValue;
+        __extensions = {},
+        __oldValue,
+        __cssRules;
     
+    /* main setter method */
     function set(v)
     {
-      if(this.nodeType === 2)
+      /* we bind to nodeValue, textContent from the Node prototype, for this we must check to make sure we are in fact on a Attr object */
+      if(this instanceof Attr)
       {
+        /* fetch the old value */
         __oldValue = __descGet.call(this);
-        __element = this.ownerElement;
-        __key = this.nodeName;
-        __environment = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
         
+        /* element that holds this attribute */
+        __element = this.ownerElement;
+        
+        /* attribute key name */
+        __key = this.nodeName;
+        
+        /* get the current extensions */
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
+        
+        /* run the pre value set listeners */
         if(__set(__element,__key,v,__oldValue,__extensions.stop))
         {
-          if(__key === 'style') /* handle style changes, if rejected discontinue this, else continue */
+          /* if the key that is being changed is the style attribute we must handle this differently by letting the individual style listeners fire first */
+          if(__key === 'style')
+          {
+            /* splits a inline style: "margin:10px;padding:5px;" into an object {margin:"10px",padding:"5px"} */
+            __cssRules = getCSSTextChanges(__oldValue,value);
+            
+            /* loop and set, when set the attribute is automatically updated */
+            for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+            {
+              key = keys[x];
+              __element.style[key] = __cssRules[key]
+            }
+          }
           
-          __descSet.call(this,v);
+          /* if the key is not a style set the attribute */
+          if(__key !== 'style') __descSet.call(this,v);
+          
+          /* if update listeners were not stopped, run them */
           if(!__extensions.stop) 
           {
             __update(__element,__key,v,__oldValue);
-            if(__key === 'style') /* handle style update changes, if rejected discontinue this, else continue */
           }
         }
-        __environment.stop = undefined;
+        
+        /* reset update stop */
+        __extensions.stop = undefined;
       }
       else
       {
-        return return __descSet.call(this,v);
+        /* all other instance types just run their redefined functionality */
+        return __descSet.call(this,v);
       }
     }
     
+    /* return the getter setter descriptor */
     return {
       get:descriptor.get,
       set:set,
@@ -464,58 +663,90 @@ window.pikantny = (function(){
     };
   }
   
-  /* for when setAttribute method is ran to apply to standard listeners as well and not just `setAttribute` method listeners */
+  /* for when setAttribute method is ran to apply to standard listeners as well and not just `setAttribute` method listeners. Example: `class` fires all `class` listeners */
   function descriptorSetAttribute(key,value)
   {
+    /* closured descriptor, used methods and local var's for increased perf */
     var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined),
         __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this)),
+        __cssRules,
         __action;
     
+    /* run the pre value set listeners for the method and the attr name */
     if(_setStandard(this,'setAttribute',undefined,undefined,__extensions.stop,arguments) && _setStandard(this,key,value,__oldValue,__extensions.stop))
     {
-       if(key === 'style') /* handle style changes, if rejected discontinue this, else continue */
-       
-       __action = __setAttribute.call(this,key,value);
-       if(!__extensions.stop)
-       {
-         _updateStandard(this,'setAttribute',undefined,undefined,__extensions.stop,arguments,__action);
-         if(key === 'style') /* handle style update changes, if rejected discontinue this, else continue */
-         _updateStandard(this,key,value,__oldValue,__extensions.stop,arguments,__action);
-       }
+      /* if the key is style fire the style changes on the style object */
+      if(key === 'style')
+      {
+        /* convert string to object */
+        __cssRules = getCSSTextChanges(__oldValue,value);
+        for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+        {
+          key = keys[x];
+          this.style[key] = __cssRules[key]
+        }
+      }
+      
+      /* run setAttribute unless the key is style as the attribute is already is already set inline */
+      __action = (key !== 'style' ? __setAttribute.call(this,key,value) : undefined);
+      
+      /* if update is not stopped run update listeners */
+      if(!__extensions.stop)
+      {
+        _updateStandard(this,'setAttribute',undefined,undefined,__extensions.stop,arguments,__action);
+        _updateStandard(this,key,value,__oldValue,__extensions.stop,arguments,__action);
+      }
     }
+    
+    /* reset update stop */
     __extensions.stop = undefined;
-    return undefined;
+    return __action;
   }
     
   function descriptorRemoveAttribute(key)
   {
+    /* closured descriptor, used methods and local var's for increased perf */
     var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined),
         __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this)),
+        __cssRules,
         __action;
     
-    if(_setStandard(this,'removeAttribute',undefined,undefined,__extensions.stop,arguments))
+    /* run the pre value remove listeners for the method and the attr name */
+    if(_setStandard(this,'removeAttribute',undefined,undefined,__extensions.stop,arguments) && _setStandard(this,key,undefined,__oldValue,__extensions.stop))
     {
-        if(key === 'style') /* handle style changes, if rejected discontinue this, else continue */
-        
-        if(_setStandard(this,key,undefined,__oldValue,__extensions.stop))
+        /* if style attribute fire individual inline style listeners */
+        if(key === 'style')
         {
-           __action = __removeAttribute.call(this,key);
-           if(!__extensions.stop)
-           {
-             _updateStandard(this,'removeAttribute',undefined,undefined,__extensions.stop,arguments,__action);
-             if(key === 'style') /* handle style update changes, if rejected discontinue this, else continue */
-             _updateStandard(this,key,undefined,__oldValue,__extensions.stop,arguments,__action);
-           }
+          /* convert string to object */
+          __cssRules = getCSSTextChanges(__oldValue,value);
+          for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+          {
+            key = keys[x];
+            this.style[key] = __cssRules[key]
+          }
+        }
+        
+        /* remove the attribute from the element */
+        __action = __removeAttribute.call(this,key);
+        
+        /* if update is not stopped run update listeners */
+        if(!__extensions.stop)
+        {
+          _updateStandard(this,'removeAttribute',undefined,undefined,__extensions.stop,arguments,__action);
+          _updateStandard(this,key,undefined,__oldValue,__extensions.stop,arguments,__action);
         }
     }
+    
+    /* reset update stop */
     __extensions.stop = undefined;
     
     return __action;
   }
     
-  /* process Event controls all listener access */
+  /* process Event, controls all listener access */
   function descriptorAddEventListener(key,func)
   {
+    /* closured local var's for increased perf */
     var __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this)),
         __action;
     
@@ -533,15 +764,17 @@ window.pikantny = (function(){
     return __action;
   }
   
+  /* process event removal, controls listener access removal */
   function descriptorRemoveEventListener(key,func)
   {
+    /* closured local var's for increased perf */
     var __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this)),
         __action;
     
     if(_setStandard(this,'removeEventListener',undefined,undefined,__extensions.stop,arguments))
     {
       __action = __removeEventListener.call(this,_key,func);
-      processEventRemoval.apply(this,arguments)
+      processEventRemoval.apply(this,arguments);
       if(!__extensions.stop)
       {
         _updateStandard(this,'removeEventListener',undefined,undefined,__extensions.stop,arguments,__action);
@@ -551,6 +784,7 @@ window.pikantny = (function(){
     return __action;
   }
   
+  /* formats a standard css key into an inline key */
   function getInlineKey(key)
   {
     var _key = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();});
@@ -561,6 +795,7 @@ window.pikantny = (function(){
     return _key;
   }
   
+  /* formats a inline key into a standard css key */
   function getStyleKey(key)
   {
     var _key = key.replace(/([A-Z])/g, "-$1");
@@ -570,9 +805,11 @@ window.pikantny = (function(){
     
     return _key.toLowerCase();
   }
-    
+  
+  /* converts an inline style string into an object */
   function getCSSTextChanges(oldValue,value)
   { 
+    /* split string rules using `;` and `:` into a key:value pair object */
     var __cssRules = value.split(';').reduce(function(style,v,x){
           var split = v.split(':'),
           prop = getInlineKey(split[0]),
@@ -582,6 +819,7 @@ window.pikantny = (function(){
           return style;
         },{});
     
+    /* loop over and check oldValue for ones that were removed and set them to empty values to be removed properly */
     for(var x=0,oldSplit=oldValue.split(';'),len=oldSplit.length,split,prop,value;x<len;x++)
     {
       split = oldSplit[x].split(':');
@@ -591,9 +829,11 @@ window.pikantny = (function(){
     
     return __cssRules;
   }
-    
+  
+  /* when a style listener is added to an element we convert the `style` object key to an observable */
   function descriptorInlineStyle(descriptor,element,key)
   {
+    /* closured descriptor, used methods and local var's for increased perf */
     var __descriptor = descriptor,
         __proto = element.style,
         __removeProperty = __proto.removeProperty,
@@ -608,31 +848,38 @@ window.pikantny = (function(){
         __oldValue = descriptor.value,
         __value = descriptor.value;
     
+    /* getter */
     function get()
     {
       return __value;
     }
     
+    /* setter */
     function set(v)
     {
       if(__writable)
       {
         __oldValue = __value;
         __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
+        
+        /* run pre value listeners for both inline key and css style key */
         if(__set(__element,__keyInline,v,__oldValue,__extensions.stop) && __set(__element,__keyStyle,v,__oldValue,__extensions.stop))
         {
           __value = v;
           if(typeof v === 'string' && v.length === 0)
           {
+            /* inline style helps dif whether the setProperty method was ran or the inline style was changed */
             __extensions.inlinestyle = true;
             __removeProperty(__keyStyle);
           }
           else
           {
+            /* inline style helps dif whether the setProperty method was ran or the inline style was changed */
             __extensions.inlinestyle = true;
             __setProperty(__keyStyle,v);
           }
 
+          
           if(!__extensions.stop)
           {
             __update(__element,__keyInline,v,__oldValue);
@@ -650,7 +897,8 @@ window.pikantny = (function(){
       configurable:true
     }
   }
-    
+  
+  /* if the cssText property on the style Object is set we parse it */
   function descriptorCSSText(descriptor,element,key)
   {
     var __descriptor = descriptor,
@@ -690,8 +938,8 @@ window.pikantny = (function(){
       configurable:true
     };
   }
-    
-    /* may not be needed anymore */
+  
+  /* in the case that setProperty method on the style Object+ is directly called */
   function descriptorCSSSetProperty(descriptor, element, key)
   {
     var __descriptor = descriptor,
@@ -733,7 +981,7 @@ window.pikantny = (function(){
     };
   }
   
-    /* may not be needed anymore */
+  /* in the case that removeProperty method on the style Object is directly called */
   function descriptorCSSRemoveProperty(descriptor, element, key)
   {
     var __descriptor = descriptor,
@@ -749,7 +997,7 @@ window.pikantny = (function(){
     
     function set(key)
     {
-      __extensions = (_elemenet.__pikantnyExtensions__ || _attachLocalBinders(__element));
+      __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
       
       if(!__extensions.inlinestyle)
       {
@@ -774,56 +1022,40 @@ window.pikantny = (function(){
       configurable:true
     };
   }
-    
-  /******* left off here ********/
-    
+     
   /* must be done this way due to keyCodes not being cross platoform, may be looked into later */
+  
+  /* run from events, need seperate for value and checked being set */
   function runInputEvents(e)
   {
     if(e.defaultPrevented) return false;
     
     var __target = e.target,
+        __extensions = (__target.__pikantnyExtensions__ || _attachLocalBinders(__target)),
+        __set = _setStandard,
+        __update = _updateStandard,
         __isRadio = (['checkbox','radio'].indexOf(__target.type) !== -1),
-        __oldValue = __target.__prevalue__,
-        __oldChecked = __target.__prechecked__,
+        __oldChecked = __extensions.__prechecked__,
+        __oldValue = (__isRadio ? __oldChecked : __extensions.__prevalue__),
         __checked = __target.checked,
-        __value = (__target.value);
+        __value = (__isRadio ? __checked : __target.value);
 
-    var __event_value = init.event('value');
-        __event_value.oldValue = __oldValue;
-        __event_value.stopped = (__target.__stopped__ || false);
-        __event_value.value = __value;
-        __event_value.stop = function(){__event_value.stopped = __target.__stopped__ = true;};
-
-    if(__target.dispatchEvent(__event_value))
+    if(__set(__target,'value',__value,__oldValue,__extensions.stop))
     {
       if(__isRadio)
       {
-        var __event_checked = init.event('checked');
-            __event_checked.oldValue = __oldChecked;
-            __event_checked.stopped = (__target.__stopped__ || false);
-            __event_checked.value = __checked;
-            __event_checked.stop = function(){__event_checked.stopped = __target.__stopped__ = true;};
-          
-        if(__target.dispatchEvent(__event_checked))
+        if(__set(__target,'checked',__checked,__oldChecked,__extensions.stop))
         {
-            if(!__target.__stopped__)
-            {
-                var __event_value_update = init.event('value',true);
-                    __event_value_update.oldValue = __target.__prevalue__;
-                    __event_value_update.value = __target.value;
-                    __target.dispatchEvent(__event_value_update);
-
-                var __event_checked_update = init.event('checked',true);
-                    __event_checked_update.oldValue = __target.__prevalue__;
-                    __event_checked_update.value = __target.checked;
-                    __target.dispatchEvent(__event_checked_update);
-            }
+          if(!__target.__stopped__)
+          {
+            __update(__target,'value',__value,__oldValue);
+            __update(__target,'checked',__checked,__oldChecked);
+          }
         }
         else
         {
-          __checkedInputDescriptor.set(__oldChecked);
-          __target.__stopped__ = undefined;
+          __checkedInputDescriptor.set.call(__target,__oldChecked);
+          __extensions.stop = undefined;
           return false;
         }
       }
@@ -831,10 +1063,7 @@ window.pikantny = (function(){
       {
           if(!__target.__stopped__)
           {
-            var __event_value_update = init.event('value',true);
-                __event_value_update.oldValue = __target.__prevalue__;
-                __event_value_update.value = __target.value;
-                __target.dispatchEvent(__event_value_update);
+            __update(__target,'value',__value,__oldValue);
           }
       }
     }
@@ -848,17 +1077,20 @@ window.pikantny = (function(){
       {
         __valueInputDescriptor.set.call(__target,__oldValue);
       }
-      __target.__stopped__ = undefined;
+      __extensions.stop = undefined;
       return false;
     }
-    __target.__stopped__ = undefined;
+    __extensions.stop = undefined;
     return true;
   }
   
   function inputListener(e)
   { 
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
+    
     /* if we are holding the key we should act like a keyup event happened */
-    if(this.isPressed)
+    if(__extensions.isPressed)
     {
       if(!runInputEvents.call(this,e))
       {
@@ -866,11 +1098,11 @@ window.pikantny = (function(){
         return false;
       }
     }
-    this.isPressed = true;
+    __extensions.isPressed = true;
     
     if(['checked','radio'].indexOf(this.type) === -1)
     {
-      this.__pikantny__prevalue__ = this.value;
+      __extensions.__prevalue__ = this.value;
       /* value gets set prior to this running so we can prevent it without user seeing the value, checked requires click event to do the same */
       setTimeout(function(){
         runInputEvents.call(e.target,e);
@@ -878,75 +1110,70 @@ window.pikantny = (function(){
     }
     else
     {
-      this.__pikantny__prevalue__ = this.value;
-      this.__pikantny__prechecked__ = this.checked;
+      __extensions.__prevalue__ = this.value;
+      __extensions.__prechecked__ = this.checked;
     }
   }
   
   function inputUpListener(e)
   {
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
+    
+    /* in the case 'enter' or 'space' is pressed on a radio input */
     if(['checked','radio'].indexOf(this.type) !== -1)
     {
       runInputEvents.call(this,e);
     }
-    this.isPressed = false;
+    __extensions.isPressed = false;
   }
   
   function selectListener(e)
   {
     var __target = e.target,
-        __oldValue = __target.__prevalue__,
-        __oldIndex = __target.__preindex__,
+        __extensions = (__target.__pikantnyExtensions__ || _attachLocalBinders(__target)),
+        __set = _setStandard,
+        __update = _updateStandard,
+        __oldValue = __extensions.__prevalue__,
+        __oldIndex = __extensions.__preindex__,
+        __index = __target.selectedIndex,
         __value = __target.value;
     
-    var __event_value = init.event('value');
-        __event_value.oldValue = __target.__prevalue__;
-        __event_value.stopped = (__target.__stopped__ || false);
-        __event_value.value = __target.value;
-        __event_value.stop = function(){__event_value.stopped = __target.__stopped__ = true;};
-    
-    var __event_index = init.event('selectedIndex');
-        __event_index.oldValue = __target.__preindex__;
-        __event_index.stopped = (__target.__stopped__ || false);
-        __event_index.value = __target.selectedIndex;
-        __event_index.stop = function(){__event_index.stopped = __target.__stopped__ = true;};
-    
-    if(__target.dispatchEvent(__event_value) && __target.dispatchEvent(__event_index))
+    if(__set(__target,'value',__value,__oldValue) && __set(__target,'selectedIndex',__index,__oldIndex))
     {
-      if(!__target.__stopped__)
+      if(!__extensions.__stopped__)
       {
-        var __event_value_update = init.event('value',true);
-        __event_value_update.oldValue = __oldValue;
-        __event_value_update.value = __target.value;
-    
-        var __event_index_update = init.event('selectedIndex',true);
-        __event_index_update.oldValue = __oldIndex;
-        __event_index_update.value = __target.selectedIndex;
-        
-        __target.dispatchEvent(__event_value_update);
-        __target.dispatchEvent(__event_index_update);
+        __update(__target,'value',__value,__oldValue);
+        __update(__target,'selectedIndex',__index,__oldIndex);
       }
     }
     else
     {
       __valueSelectDescriptor.set.call(__target,__oldValue);
-      __target.__stopped__ = undefined;
+      __extensions.__stopped__ = undefined;
       return false;
     }
+    __extensions.__stopped__ = undefined;
     return true;
   }
   
   function selectFocusListener(e)
   {
-    this.__pikantny__prevalue__ = this.value;
-    this.__pikantny__prevalue__ = this.selectedIndex;
+    var __target = e.target,
+        __extensions = (__target.__pikantnyExtensions__ || _attachLocalBinders(__target));
+    
+    __extensions.__prevalue__ = this.value;
+    __extensions.__preindex__ = this.selectedIndex;
   }
   
   function applyTextChanges()
   {
-    if(this.__pikantny__prevalue__ === undefined)
+    if(this.__pikantnyExtensions__ === undefined)
     {
-      if(this.isPressed === undefined) this.isPressed = false;
+      var __target = this,
+          __extensions =  _attachLocalBinders(__target);
+      
+      __extensions.isPressed = false;
       
       /* need to support html5 input types */
       
@@ -954,62 +1181,116 @@ window.pikantny = (function(){
       {
         this.addEventListener('mousedown',inputListener,false);
         this.addEventListener('click',inputUpListener,false);
-        Object.defineProperty(this,'__pikantny__prevalue__',descriptorHidden(this.value));
-        Object.defineProperty(this,'__pikantny__prechecked__',descriptorHidden(this.checked.toString()));
+        __extensions.__prevalue__ = this.value;
+        __extensions.__prechecked__ = this.checked.toString();
       }
       else
       {
         this.addEventListener('keydown',inputListener,false);
         this.addEventListener('keyup',inputUpListener,false);
-        Object.defineProperty(this,'__prevalue__',descriptorHidden(this.value));
+        __extensions.__prevalue__ = this.value;
       }
     }
   }
   
   function applySelectChanges()
   {
-    if(this.__pikantny__prevalue__ === undefined)
+    if(this.__pikantnyExtensions__ === undefined)
     {
+      var __target = this,
+          __extensions =  _attachLocalBinders(__target);
+      
       this.addEventListener('focus',selectFocusListener);
       this.addEventListener('change',selectListener);
-      Object.defineProperty(this,'__pikantny__prevalue__',descriptorHidden(this.value));
-      Object.defineProperty(this,'__pikantny__prevalue__',descriptorHidden(this.selectedIndex));
+      __extensions.__prevalue__ = this.value;
+      __extensions.__preindex__ = this.selectedIndex;
     }
   }
   
   function processStyleEvent(key,keyProper)
   {
-    if(this.__pikantny__styleList__ === undefined) Object.defineProperty(this,'__pikantny__styleList__',descriptorHidden([]));
-    if(this.__pikantny__styleList__.indexOf(key) === -1)
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element));
+    
+    if(__extensions.__styleList__ === undefined) __extensions.__styleList__ = [];
+    if(__extensions.__styleList__.indexOf(key) === -1)
     {
-        Object.defineProperty(this.style,key,descriptorInlineStyle(Object.getOwnPropertyDescriptor(this.style,key),this,key,keyProper));
-        this.__pikantny__styleList__.push(key);
+        Object.defineProperty(__element.style,key,descriptorInlineStyle(Object.getOwnPropertyDescriptor(__element.style,key),__element,key,keyProper));
+        __extensions.__styleList__.push(key);
         
         /* this allows for bubbling to take effect */
-        var __children = this.querySelectorAll('*');
-        for(var x=0,len=__children.length,child;x<len;x++)
+        var __children = __element.querySelectorAll('*');
+        for(var x=0,len=__children.length,child,ext;x<len;x++)
         {
           child = __children[x];
-          if(child.__pikantny__styleList__ === undefined) Object.defineProperty(child,'__pikantny__styleList__',descriptorHidden([]));
-          if(child.__pikantny__styleList__.indexOf(key) === -1)
+          ext = (child.__pikantnyExtensions__ || _attachLocalBinders(child));
+          
+          if(ext.__styleList__ === undefined) ext.__styleList__ = [];
+          if(ext.__styleList__.indexOf(key) === -1)
           {
+            /* need to handle this differently for bubbled events */
+            
             Object.defineProperty(child.style,key,descriptorInlineStyle(Object.getOwnPropertyDescriptor(child.style,key),child,key,keyProper));
-            child.__pikantny__styleList__.push(key);
+            ext.__styleList__.push(key);
           }
-        } 
+        }
+    }
+  }
+  
+  
+  /* note, need to add into account bubbled listeners on nodes that are post inserted into the dom */
+  /* .__pikantnyExtensions__.attrListeners, .__pikantnyExtensions__.parentAttrListeners */
+  
+  function attachAttrEvent(el,key,func)
+  {
+    var __element = el,
+        __children = __element.querySelectorAll('*'),
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element)),
+        __isMultipleKeys = (typeof key === 'object' && !!key.length);
+    
+    /* standard */
+    if(__isMultipleKeys)
+    {
+      for(var x=0,len=key.length;x<len;x++)
+      {
+        if(!__extensions.attrListeners[key[x]]) __extensions.attrListeners[key[x]] = [];
+        __extensions.attrListeners[key[x]].push(func);
+        
+        /* bubbled */
+        attachAttrBubbled(__children,key[x],func);
+      }
+    }
+    else
+    {
+      if(!__extensions.attrListeners[key]) __extensions.attrListeners[key] = [];
+      __extensions.attrListeners[key].push(func);
+      
+      /* bubbled */
+      attachAttrBubbled(__children,key,func);
+    }
+  }
+  
+  function attachAttrBubbled(children,key,func)
+  {
+    for(var x=0,len=children.length,ext;x<len;x++)
+    {
+      ext = (children[x].__pikantnyExtensions__ || _attachLocalBinders(children[x]));
+      if(!ext.parentAttrListeners[key]) ext.parentAttrListeners[key] = [];
+      ext.parentAttrListeners[key].push(func);
     }
   }
   
   function processEvent(key,func)
   {
     /* handle inline css change listeners, attribute, and cssText, setProperty */
-    var __cssKey = getStyleKey(key),
+    var __element = this,
+        __cssKey = getStyleKey(key),
         __cssInlineKey = getInlineKey(key);
     
     if(__CSSInlineList.indexOf(__cssInlineKey) !== -1)
     {
-      processStyleEvent.call(this,__cssInlineKey,__cssKey);
-      
+      processStyleEvent.call(__element,__cssInlineKey,__cssKey);
+      attachAttrEvent(__element,[__cssKey,__cssInlineKey],func);
       return __cssInlineKey;
     }
     
@@ -1066,8 +1347,84 @@ window.pikantny = (function(){
       }
     }
     
+    attachAttrEvent(__element,key,func);
     return key;
   }
+  
+  function removeAttrEvent(el,key,func)
+  {
+    var __element = el,
+        __children = __element.querySelectorAll('*'),
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element)),
+        __isMultipleKeys = (typeof key === 'object' && !!key.length),
+        __stringFunc = func.toString(),
+        __listeners = [];
+    
+    /* standard */
+    if(__isMultipleKeys)
+    {
+      for(var x=0,len=key.length,listeners;x<len;x++)
+      {
+        listeners = __extensions.attrListeners[key[x]];
+        if(!!listeners)
+        {
+          inner:for(var i=0,lenn=listeners.length;i<lenn;i++)
+          {
+            if(listeners[i].toString() === _stringFunc)
+            {
+              listeners.splice(i,1);
+              break inner;
+            }
+          }
+        }
+        
+        /* bubbled */
+        removeAttrBubbled(__children,key[x],func);
+      }
+    }
+    else
+    {
+      __listeners = __extensions.attrListeners[key];
+      if(!!__listeners)
+      {
+        inner:for(var i=0,lenn=__listeners.length;i<lenn;i++)
+        {
+          if(__listeners[i].toString() === _stringFunc)
+          {
+            __listeners.splice(i,1);
+            break inner;
+          }
+        }
+      }
+      
+      /* bubbled */
+      removeAttrBubbled(__children,key,func);
+    }
+  }
+  
+  function removeAttrBubbled(children,key,func)
+  {
+    var __stringFunc = func.toString();
+    
+    outer:for(var x=0,len=children.length,ext,listeners;x<len;x++)
+    {
+      ext = (children[x].__pikantnyExtensions__ || _attachLocalBinders(children[x]));
+      listeners = ext.parentAttrListeners[key];
+      if(!!listeners)
+      {
+        inner:for(var i=0,lenn=listeners.length;i<lenn;i++)
+        {
+          if(listeners[i].toString() === __stringFunc)
+          {
+            listeners.splice(i,1);
+            break inner;
+          }
+        }
+      }
+    }
+  }
+  
+  /******* left off here ********/
   
   function processEventRemoval(key,func)
   {
@@ -1120,12 +1477,16 @@ window.pikantny = (function(){
               __select = this.querySelectorAll('select'),
               __element = this;
           
+          /* need to check if listeners are on attrListeners and not to remove if so */
           function loop(els,type,isSelect)
           {
-            for(var x=0,len=els.length,parent,isRemovable = true,isRadio;x<len;x++)
+            for(var x=0,len=els.length,parent,isRemovable = true,isRadio,ext;x<len;x++)
             {
               parent = els[x];
+              ext = (parent.__pikantnyExtensions__ || _attachLocalBinders(parent));
               isRadio = (['checkbox','radio'].indexOf(els[x].type) !== -1);
+              
+              /* we have easier parent listener now */
               while(parent !== __element && isRemovable)
               {
                 isRemovable = !(parent.events[type] !== undefined && parent.events[type].length !== 0);
@@ -1255,7 +1616,7 @@ window.pikantny = (function(){
   Element.prototype.setAttribute = descriptorSetAttribute;
   Element.prototype.removeAttribute = descriptorRemoveAttribute;
   
-    /* sounds fishy */
+  /* sounds fishy, needs looked into */
   Object.defineProperty(Node.prototype,'nodeValue',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'nodeValue'),'nodeValue'));
   Object.defineProperty(Node.prototype,'textContent',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'textContent'),'textContent'));
   
