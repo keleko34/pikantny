@@ -94,7 +94,6 @@ var standardDomProperties = (function(){
 
                  function testFunc(e)
                  {
-                     expect(e instanceof Event).to.equal(true);
                      expect(e.value).to.not.equal(undefined);
                      expect(e.oldValue).to.not.equal(undefined);
                      expect(e.stopped).to.not.equal(undefined);
@@ -336,7 +335,6 @@ var standardDomProperties = (function(){
 
                  function testFunc(e)
                  {
-                     expect(e instanceof Event).to.equal(true);
                      expect(e.value).to.not.equal(undefined);
                      expect(e.oldValue).to.not.equal(undefined);
                      expect(e.stopped).to.not.equal(undefined);
@@ -578,7 +576,6 @@ var standardDomProperties = (function(){
 
                  function testFunc(e)
                  {
-                     expect(e instanceof Event).to.equal(true);
                      expect(e.value).to.not.equal(undefined);
                      expect(e.oldValue).to.not.equal(undefined);
                      expect(e.stopped).to.not.equal(undefined);
@@ -828,7 +825,6 @@ var standardDomProperties = (function(){
 
                  function testFunc(e)
                  {
-                     expect(e instanceof Event).to.equal(true);
                      expect(e.value).to.not.equal(undefined);
                      expect(e.oldValue).to.not.equal(undefined);
                      expect(e.stopped).to.not.equal(undefined);

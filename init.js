@@ -15,8 +15,7 @@
   
   Major
   * __pikantnyExtensions__
-  * __pikantny__styleList__
-  * __pikantny__KeyList__
+  * __pikantnyKeyList__
   * events
   
   *** issues with styles resetting the descriptor,
@@ -62,25 +61,24 @@ window.pikantny = (function(){
   var __addEventListener = EventTarget.prototype.addEventListener,
       __removeEventListener = EventTarget.prototype.removeEventListener,
       
-      /* backup so we can overwrite the original to listen to changes just as properties */
+      /* backup so we can overwrite the original to listen to changes just as properties as well as track new attributes */
       __setAttribute = Element.prototype.setAttribute,
       __removeAttribute = Element.prototype.removeAttribute,
       
-      
+      /* track values for inputs */
       __valueSelectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value'),
       __valueInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'),
-      __checkedInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked');
+      __checkedInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked'),
+      
+      __querySelectorAll = Object.getOwnPropertyDescriptor(Element.prototype,'querySelectorAll').value;
   
   
   /* Helper method to loop through listeners and run them, node listeners */
   function loopListener(looper,e)
   {
     /* listeners array */
-    var _looper = looper,
-        _len = looper.length,
-        _e = e,
-        _x;
-    for(_x=0;_x<_len;_x++)
+    var _looper = looper;
+    for(var _x=0,_e=e,_len=looper.length;_x<_len;_x++)
     {
       /* loop and call listeners */
       looper[_x](_e);
@@ -97,25 +95,22 @@ window.pikantny = (function(){
     if(e.__stopPropogation__ !== undefined) return;
     
     /* bubbled listeners array */
-    var _looper = looper,
-        _len = looper.length,
-        _e = e,
-        _x;
-    
-    for(_x=0;_x<_len;_x++)
+    var _looper = looper;
+    for(var _x=0,_e=e,_len=looper.length,loop;_x<_len;_x++)
     {
+      loop = looper[_x];
       /* get the parent node for the event */
-      _e.target = looper[_x].parent;
+      _e.target = loop.parent;
       
       /* call bubbled parent node listeners */
-      looper[_x].func(_e);
+      loop.func(_e);
       
       /* stop bubbling if stopImmediatePropogation or stopPropogation is called */
       if(_e.__stopPropogation__ !== undefined) break;
     }
   }
   
-  /* Helper method to loop through all listeners and return if a method exists */
+  /* Helper method to loop through all listeners and return if a method exists for removing it */
   function loopListenerCheck(looper,func)
   {
     /* listener array to check */
@@ -194,11 +189,10 @@ window.pikantny = (function(){
     /* the name of the listener */
     this.type = (v.type === 'update' ? v.attr+v.type : v.attr);
     
-    /* current window context */
-    this.view = window;
+    this.stopped = false;
     
     /* tells if the update listeners have been stopped or not */
-    if(v.stop) this.__stopped__ = true;
+    if(v.stop) this.__stopped__ = this.stopped = true;
   }
 
   /* This holds all listeners associated with a particular element */
@@ -260,7 +254,7 @@ window.pikantny = (function(){
   /* SECTION DESCRIPTOR STANDARD/VALUE/FUNCTION */
   
   /* runs the associated pre value set listeners */
-  function _setStandard(el, prop, val, oldValue, stop, args, action)
+  function _setStandard(el, prop, val, oldValue, extensions, stop, args, action)
   {
     /* create event */
     var e = new changeEvent({
@@ -273,14 +267,15 @@ window.pikantny = (function(){
         stop: stop,
         arguments: args,
         action: action
-    });
+    }),
+    __extensions = extensions;
     
     /* check if the node is extended */
-    if(el.__pikantnyExtensions__ !== undefined)
+    if(__extensions !== undefined)
     {
       /* get standard and bubbled listeners */
-      var localAttrListeners = el.__pikantnyExtensions__.attrListeners,
-          localParentAttrListeners = el.__pikantnyExtensions__.parentAttrListeners;
+      var localAttrListeners = __extensions.attrListeners,
+          localParentAttrListeners = __extensions.parentAttrListeners;
       
       /* loop local listeners first */
       if(localAttrListeners[prop] !== undefined)
@@ -312,7 +307,7 @@ window.pikantny = (function(){
   }
   
   /* runs the associated post value set update listeners */
-  function _updateStandard(el, prop, val, oldValue, args, action)
+  function _updateStandard(el, prop, val, oldValue, extensions, args, action)
   {
     /* create event */
     var e = new changeEvent({
@@ -324,14 +319,15 @@ window.pikantny = (function(){
         srcElement: el,
         arguments: args,
         action: action
-    });
+    }),
+    __extensions = extensions;
     
     /* check if the node is extended */
-    if(el.__pikantnyExtensions__ !== undefined)
+    if(__extensions !== undefined)
     {
       /* get standard and bubbled update listeners */
-      var localAttrListeners = el.__pikantnyExtensions__.attrUpdateListeners,
-          localParentAttrListeners = el.__pikantnyExtensions__.parentAttrUpdateListeners;
+      var localAttrListeners = __extensions.attrUpdateListeners,
+          localParentAttrListeners = __extensions.parentAttrUpdateListeners;
       
       /* loop local listeners first */
       if(localAttrListeners[prop] !== undefined)
@@ -340,9 +336,9 @@ window.pikantny = (function(){
       }
       
       /* if a * (all) listener was added, loop them */
-      if(e.__stopImmediatePropogation__ === undefined && localAttrListeners[__all__+'update'] !== undefined)
+      if(e.__stopImmediatePropogation__ === undefined && localAttrListeners[__all__] !== undefined)
       {
-        loopListener(localAttrListeners[__all__+'update'],e);
+        loopListener(localAttrListeners[__all__],e);
       }
       
       /* loop bubbled listeners */
@@ -352,9 +348,9 @@ window.pikantny = (function(){
       }
       
       /* if a * (all) bubbled listener was added, loop them */
-      if(e.__stopPropogation__ === undefined && localParentAttrListeners[__all__+'update'] !== undefined)
+      if(e.__stopPropogation__ === undefined && localParentAttrListeners[__all__] !== undefined)
       {
-        loopBubbledListener(localParentAttrListeners[__all__+'update'],e);
+        loopBubbledListener(localParentAttrListeners[__all__],e);
       }
     }
     
@@ -363,17 +359,43 @@ window.pikantny = (function(){
   }
   
   /* for all standard prototypes that contain getters and setters */
-  function descriptorStandard(descriptor,key)
+  function descriptorStandard(descriptor,key,extended)
   {
     /* closured descriptor, used methods and local var's for increased perf */
     var __descriptor = descriptor,
         __key = key,
+        __extended = extended,
         __descSet = __descriptor.set,
         __descGet = __descriptor.get,
         __update = _updateStandard,
         __set = _setStandard,
         __extensions = {},
         __oldValue;
+    
+    function setExtended(v)
+    {
+      /* get the current value of this property */
+      __oldValue = __descGet.call(this);
+      
+      /* get the extensions for this node */
+      __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
+      
+      if(__set(this,__key,v,__oldValue,__extensions.stop) && __set(this,__extended,v,__oldValue,__extensions.stop))
+      {
+        /* if the default was not prevented, set the value */
+        __descSet.call(this,v);
+
+        /* if update listeners were not stopped run them */
+        if(!__extensions.stop)
+        {
+          __update(this,__key,v,__oldValue);
+          __update(this,__extended,v,__oldValue);
+        }
+      }
+      
+      /* reset update stop */
+      __extensions.stop = undefined;
+    }
     
     /* main setter method */
     function set(v)
@@ -389,7 +411,7 @@ window.pikantny = (function(){
       {
         /* if the default was not prevented, set the value */
         __descSet.call(this,v);
-        
+
         /* if update listeners were not stopped run them */
         if(!__extensions.stop) __update(this,__key,v,__oldValue);
       }
@@ -401,7 +423,7 @@ window.pikantny = (function(){
     /* return new descriptor */
     return {
       get:descriptor.get,
-      set:set,
+      set:(__extended !== undefined ? setExtended : set),
       enumerable:descriptor.enumerable,
       configurable:true
     }
@@ -462,16 +484,44 @@ window.pikantny = (function(){
   }
   
   /* for function based prototypes that contain value and writable and the default value is a function */
-  function descriptorFunction(descriptor,key)
+  function descriptorFunction(descriptor,key,extended)
   {
     /* closured descriptor, used methods and local var's for increased perf */
     var __descriptor = descriptor,
         __key = key,
+        __extended = extended,
         __descVal = descriptor.value,
         __set = _setStandard,
         __update = _updateStandard,
         __extensions = {},
         __action;
+    
+    function setExtended()
+    {
+      /* get the extensions for this node */
+      __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
+      
+      /* run the pre method activation listeners */
+      if(__set(this,__key,undefined,undefined,__extensions.stop,arguments) && __set(this,__extended,undefined,undefined,__extensions.stop,arguments))
+      {
+        /* run the associated method */
+        __action = __descVal.apply(this,arguments);
+
+        /* we don't want to create a circular reference */
+        if(__key === 'addEventListener' && arguments[0] === 'addEventListenerupdate') __extensions.stop = true;
+
+        /* if update listeners were not stopped run them */
+        if(!__extensions.stop)
+        {
+          __update(this,__key,undefined,undefined,arguments,__action);
+          __update(this,__extended,undefined,undefined,arguments,__action);
+        }
+      }
+      
+      /* reset update stop */
+      __extensions.stop = undefined;
+      return __action;
+    }
     
     /* the new function that will be used as the value for this descriptor */
     function set()
@@ -484,21 +534,22 @@ window.pikantny = (function(){
       {
         /* run the associated method */
         __action = __descVal.apply(this,arguments);
-        
+
         /* we don't want to create a circular reference */
         if(__key === 'addEventListener' && arguments[0] === 'addEventListenerupdate') __extensions.stop = true;
-        
+
         /* if update listeners were not stopped run them */
-        if(!__extensions.stop) __update(this,__key,v,__oldValue,arguments,__action);
+        if(!__extensions.stop) __update(this,__key,undefined,undefined,arguments,__action);
       }
       
       /* reset update stop */
       __extensions.stop = undefined;
+      return __action;
     }
     
     /* return new descriptor */
     return {
-      value:set,
+      value:(__extended !== undefined ? setExtended : set),
       writable:descriptor.writable,
       enumerable:descriptor.enumerable,
       configurable:true
@@ -752,7 +803,7 @@ window.pikantny = (function(){
     
     if(_setStandard(this,'addEventListener',undefined,undefined,__extensions.stop,arguments))
     {
-      __action = __addEventListener.call(this,_key,func);
+      __action = __addEventListener.call(this,key,func);
       processEvent.apply(this,arguments);
       
       if(!__extensions.stop)
@@ -773,7 +824,7 @@ window.pikantny = (function(){
     
     if(_setStandard(this,'removeEventListener',undefined,undefined,__extensions.stop,arguments))
     {
-      __action = __removeEventListener.call(this,_key,func);
+      __action = __removeEventListener.call(this,key,func);
       processEventRemoval.apply(this,arguments);
       if(!__extensions.stop)
       {
@@ -959,10 +1010,14 @@ window.pikantny = (function(){
       
       if(!__extensions.inlinestyle)
       {
-        if(__set(__element,__key,undefined,undefined,__extensions.stop,arguments))
+        if(__set(__element,__keyInline,undefined,undefined,__extensions.stop,arguments) && __set(__element,__keyStyle,undefined,undefined,__extensions.stop,arguments))
         {
           __action = __descSet.apply(this,arguments);
-          if(!__extensions.stop) __update(__element,__key,undefined,undefined,__extensions.stop,arguments,__action);
+          if(!__extensions.stop) 
+          {
+            __update(__element,__keyInline,undefined,undefined,__extensions.stop,arguments,__action);
+            __update(__element,__keyStyle,undefined,undefined,__extensions.stop,arguments,__action);
+          }
         }
         __extensions.stop = undefined;
       }
@@ -1251,32 +1306,44 @@ window.pikantny = (function(){
     /* standard */
     if(__isMultipleKeys)
     {
-      for(var x=0,len=key.length;x<len;x++)
+      for(var x=0,len=key.length,__isUpdate,__listener,__key;x<len;x++)
       {
-        if(!__extensions.attrListeners[key[x]]) __extensions.attrListeners[key[x]] = [];
-        __extensions.attrListeners[key[x]].push(func);
+        __isUpdate = (key[x].indexOf('update') !== -1);
+        __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners');
+        __key = (key[x].replace('update',''))
+        
+        if(!__extensions[__listener][__key]) __extensions[__listener][__key] = [];
+        __extensions[__listener][__key].push(func);
         
         /* bubbled */
-        attachAttrBubbled(__children,key[x],func);
+        attachAttrBubbled(__element,__children,key[x],func);
       }
     }
     else
     {
-      if(!__extensions.attrListeners[key]) __extensions.attrListeners[key] = [];
-      __extensions.attrListeners[key].push(func);
+      var __isUpdate = (key.indexOf('update') !== -1),
+          __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners'),
+          __key = (key.replace('update',''));
+      
+      if(!__extensions[__listener][__key]) __extensions[__listener][__key] = [];
+      __extensions[__listener][__key].push(func);
       
       /* bubbled */
-      attachAttrBubbled(__children,key,func);
+      attachAttrBubbled(__element,__children,key,func);
     }
   }
   
-  function attachAttrBubbled(children,key,func)
+  function attachAttrBubbled(el,children,key,func)
   {
+    var __isUpdate = (key.indexOf('update') !== -1),
+        __listener = (!__isUpdate ? 'parentAttrListeners' : 'parentAttrUpdateListeners'),
+        __key = (key.replace('update',''));
+    
     for(var x=0,len=children.length,ext;x<len;x++)
     {
       ext = (children[x].__pikantnyExtensions__ || _attachLocalBinders(children[x]));
-      if(!ext.parentAttrListeners[key]) ext.parentAttrListeners[key] = [];
-      ext.parentAttrListeners[key].push(func);
+      if(!ext[__listener][__key]) ext[__listener][__key] = [];
+      ext[__listener][__key].push({func:func,parent:el});
     }
   }
   
@@ -1363,9 +1430,13 @@ window.pikantny = (function(){
     /* standard */
     if(__isMultipleKeys)
     {
-      for(var x=0,len=key.length,listeners;x<len;x++)
+      for(var x=0,len=key.length,listeners,__isUpdate,__listener,__key;x<len;x++)
       {
-        listeners = __extensions.attrListeners[key[x]];
+        __isUpdate = (key[x].indexOf('update') !== -1);
+        __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners');
+        __key = (key[x].replace('update',''))
+        
+        listeners = __extensions[__listener][__key];
         if(!!listeners)
         {
           inner:for(var i=0,lenn=listeners.length;i<lenn;i++)
@@ -1384,12 +1455,16 @@ window.pikantny = (function(){
     }
     else
     {
-      __listeners = __extensions.attrListeners[key];
+      var __isUpdate = (key.indexOf('update') !== -1),
+          __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners'),
+          __key = (key.replace('update',''));
+      
+      __listeners = __extensions[__listener][__key];
       if(!!__listeners)
       {
         inner:for(var i=0,lenn=__listeners.length;i<lenn;i++)
         {
-          if(__listeners[i].toString() === _stringFunc)
+          if(__listeners[i].toString() === __stringFunc)
           {
             __listeners.splice(i,1);
             break inner;
@@ -1404,17 +1479,20 @@ window.pikantny = (function(){
   
   function removeAttrBubbled(children,key,func)
   {
-    var __stringFunc = func.toString();
+    var __stringFunc = func.toString(),
+        __isUpdate = (key.indexOf('update') !== -1),
+        __listener = (!__isUpdate ? 'parentAttrListeners' : 'parentAttrUpdateListeners'),
+        __key = (key.replace('update',''));
     
     outer:for(var x=0,len=children.length,ext,listeners;x<len;x++)
     {
       ext = (children[x].__pikantnyExtensions__ || _attachLocalBinders(children[x]));
-      listeners = ext.parentAttrListeners[key];
+      listeners = ext[__listener][__key];
       if(!!listeners)
       {
         inner:for(var i=0,lenn=listeners.length;i<lenn;i++)
         {
-          if(listeners[i].toString() === __stringFunc)
+          if(listeners[i].func.toString() === __stringFunc)
           {
             listeners.splice(i,1);
             break inner;
@@ -1424,35 +1502,32 @@ window.pikantny = (function(){
     }
   }
   
-  /******* left off here ********/
-  
+  /* only removes non bubbled, so we then just must remove none and ignore if has bubbled */
   function processEventRemoval(key,func)
   {
-    if(['checked','value'].indexOf(key) !== -1)
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element)),
+        __cssKey = getStyleKey(key),
+        __cssInlineKey = getInlineKey(key);
+    
+    if(__CSSInlineList.indexOf(__cssInlineKey) !== -1)
     {
-      /* run up the tree checking for events */
-      var __isRemovable = true,
-          __parent = this.parentElement;
-      while(__parent !== document.documentElement && __isRemovable)
-      {
-        __isRemovable = !(__parent.events['value'] !== undefined && __parent.events['value'].length !== 0);
-        __parent = __parent.parentElement;
-      }
-      
-      if(__isRemovable)
+      removeAttrEvent(__element,[__cssKey,__cssInlineKey],func);
+      return __cssInlineKey;
+    }
+    
+    if(['checked','value','selectedIndex'].indexOf(key) !== -1)
+    {
+      /* run up the tree checking for events, should be run down the tree? */
+      var __isBubbleRemovable = (__extensions.parentAttrListeners[key] === undefined || __extensions.parentAttrListeners[key].length < 2);
+
+      if(!!__extensions.attrListeners[key] && __extensions.attrListeners[key].length < 2)
       {
         if(['input','textarea'].indexOf(this.nodeName.toLowerCase()) !== -1)
         {
           if(['checkbox','radio'].indexOf(this.type) !== -1)
           {
-            __parent = this.parentElement;
-            while(__parent !== document.documentElement && __isRemovable)
-            {
-              __isRemovable = !(__parent.events['checked'] !== undefined && __parent.events['checked'].length !== 0);
-              __parent = __parent.parentElement;
-            }
-            
-            if(__isRemovable)
+            if(__isBubbleRemovable)
             {
               this.removeEventListener('mousedown',inputListener);
               this.removeEventListener('click',inputUpListener);
@@ -1460,14 +1535,20 @@ window.pikantny = (function(){
           }
           else
           {
-            this.removeEventListener('keydown',inputListener);
-            this.removeEventListener('keyup',inputUpListener);
+            if(__isBubbleRemovable)
+            {
+              this.removeEventListener('keydown',inputListener);
+              this.removeEventListener('keyup',inputUpListener);
+            }
           }
         }
         else if(['select'].indexOf(this.nodeName.toLowerCase()) !== -1)
         {
-          this.removeEventListener('focus',selectFocusListener);
-          this.removeEventListener('change',selectListener);
+          if(__isBubbleRemovable)
+          {
+            this.removeEventListener('focus',selectFocusListener);
+            this.removeEventListener('change',selectListener);
+          }
         }
         /* need to check if any listeners exist in the  lower tree... oh boy... */
         else
@@ -1478,41 +1559,43 @@ window.pikantny = (function(){
               __element = this;
           
           /* need to check if listeners are on attrListeners and not to remove if so */
-          function loop(els,type,isSelect)
+          function loop(els,type)
           {
-            for(var x=0,len=els.length,parent,isRemovable = true,isRadio,ext;x<len;x++)
+            for(var x=0,len=els.length,isBubbleRemovable,isRadio,el,ext;x<len;x++)
             {
-              parent = els[x];
-              ext = (parent.__pikantnyExtensions__ || _attachLocalBinders(parent));
-              isRadio = (['checkbox','radio'].indexOf(els[x].type) !== -1);
+              el = els[x];
+              ext = (el.__pikantnyExtensions__ || _attachLocalBinders(el));
+              isRadio = (['checkbox','radio'].indexOf(el.type) !== -1);
+              isBubbleRemovable = (ext.parentAttrListeners[key] === undefined || ext.parentAttrListeners[key].length < 2)
               
-              /* we have easier parent listener now */
-              while(parent !== __element && isRemovable)
+              if(!!ext.attrListeners[key] && ext.attrListeners[key].length < 2)
               {
-                isRemovable = !(parent.events[type] !== undefined && parent.events[type].length !== 0);
-                if(isRadio) isRemovable = !(parent.events[(type === 'value' ? 'checked' : 'value')] !== undefined && parent.events[(type === 'value' ? 'checked' : 'value')].length !== 0);
-                if(isSelect) isRemovable = !(parent.events[(type === 'value' ? 'selectedIndex' : 'value')] !== undefined && parent.events[(type === 'value' ? 'selectedIndex' : 'value')].length !== 0);
-                parent = parent.parentElement;
-              }
-              if(isRemovable)
-              {
-                if(['input','textarea'].indexOf(els[x].nodeName.toLowerCase()) !== -1)
+                if(['input','textarea'].indexOf(el.nodeName.toLowerCase()) !== -1)
                 {
                   if(isRadio)
                   {
-                    els[x].removeEventListener('mousedown',inputListener);
-                    els[x].removeEventListener('mouseup',inputUpListener);
+                    if(isBubbleRemovable)
+                    {
+                      el.removeEventListener('mousedown',inputListener);
+                      el.removeEventListener('mouseup',inputUpListener);
+                    }
                   }
                   else
                   {
-                    els[x].removeEventListener('keydown',inputListener);
-                    els[x].removeEventListener('keyup',inputUpListener);
+                    if(isBubbleRemovable)
+                    {
+                      el.removeEventListener('keydown',inputListener);
+                      el.removeEventListener('keyup',inputUpListener);
+                    }
                   }
                 }
                 else
                 {
-                  els[x].removeEventListener('focus',selectFocusListener);
-                  els[x].removeEventListener('change',selectListener);
+                  if(isBubbleRemovable)
+                  {
+                    el.removeEventListener('focus',selectFocusListener);
+                    el.removeEventListener('change',selectListener);
+                  }
                 }
               }
             }
@@ -1538,13 +1621,14 @@ window.pikantny = (function(){
         }
       }
     }
+    removeAttrEvent(__element,key,func);
     return key;
   }
   
   function init(obj,local)
   {
     if(local === undefined) local = window;
-    if(local.__pikantny__KeyList__ === undefined) Object.defineProperty(local,'__pikantny__KeyList__',descriptorHidden([]));
+    if(local.__pikantnyKeyList__ === undefined) Object.defineProperty(local,'__pikantnyKeyList__',descriptorHidden([]));
     for(var x=0,keys=Object.getOwnPropertyNames(obj),len=keys.length;x<len;x++) init.inject(obj,keys[x],local);
     
     return init;
@@ -1552,13 +1636,27 @@ window.pikantny = (function(){
 
   init.inject = function(obj,key,local)
   {
-    if(local.__pikantny__KeyList__.indexOf(key) !== -1 || __blocked__.indexOf(key) !== -1 || key.indexOf('__') === 0) return init;
+    var __extensions = local.__pikantnyKeyList__;
+    
+    if(__extensions[key] !== undefined || __blocked__.indexOf(key) !== -1 || key.indexOf('__') === 0) return init;
     
     var __descriptor = Object.getOwnPropertyDescriptor(obj,key),
         __defined;
+    
     if(__descriptor.configurable)
     {
-      if(__descriptor.set !== undefined)
+      if(__TextPropertyList__.indexOf(key) !== -1)
+      {
+        if(__descriptor.set !== undefined)
+        {
+          __defined = !!Object.defineProperty(obj,key,descriptorStandard(__descriptor,key,'html'));
+        }
+        else if(typeof __descriptor.value === 'function')
+        {
+          __defined = !!Object.defineProperty(obj,key,descriptorFunction(__descriptor,key,'html'));
+        }
+      }
+      else if(__descriptor.set !== undefined)
       {
         __defined = !!Object.defineProperty(obj,key,descriptorStandard(__descriptor,key));
       }
@@ -1575,24 +1673,20 @@ window.pikantny = (function(){
       if(__defined)
       {
           var _desc = Object.getOwnPropertyDescriptor(HTMLElement.prototype,'on'+key),
-              _descUpdate = Object.getOwnPropertyDescriptor(HTMLElement.prototype,'on'+key+'update')
+              _descUpdate = Object.getOwnPropertyDescriptor(HTMLElement.prototype,'on'+key+'update');
         
           if(!_desc) Object.defineProperty(HTMLElement.prototype,'on'+key,descriptorEvent(key));
           if(!_descUpdate) Object.defineProperty(HTMLElement.prototype,'on'+key+'update',descriptorEvent(key,true));
       }
+      
+      if(__extensions[key] === undefined) __extensions[key] = __descriptor;
     }
-    local.__pikantny__KeyList__.push(key);
     return init;
-  }
-  
-  init.event = function(key,update)
-  {
-    return new Event(key+(!!update ? 'update' : ''),{bubbles: true,cancelable: true});
   }
   
   init.observables = function(local)
   {
-    return (local || window).__pikantny__KeyList__.slice();
+    return (local || window).__pikantnyKeyList__.slice();
   }
   
   init.addEventListener = document.documentElement.addEventListener.bind(document.documentElement);
@@ -1606,8 +1700,7 @@ window.pikantny = (function(){
   if(Element.prototype.stop === undefined)
   {
       Element.prototype.stop = function(){ 
-          var __extensions = (this.__pikantnyExtensions__ || _attachLocalBinders(this));
-          __extensions.stop = true;
+          (this.__pikantnyExtensions__ || _attachLocalBinders(this)).stop = true;
           return this;
       };
   }
@@ -1635,7 +1728,53 @@ window.pikantny = (function(){
   {
     if(window[__GlobalList__[x]] !== undefined && window[__GlobalList__[x]].prototype !== undefined) init(window[__GlobalList__[x]].prototype,window);
   }
+  
+  /******* left off here ********/
+  
+  function htmlCopyBubbled(ext,listeners,isUpdate)
+  {
+    var __listener = (!isUpdate ? 'parentAttrListeners' : 'parentAttrUpdateListeners');
     
+    for(var x=0,keys=Object.keys(listeners),len=keys.length,key,func;x<len;x++)
+    {
+      key = keys[x];
+      if(!ext[__listener][key]) ext[__listener][key] = [];
+      ext[__listener][key].concat(listeners[key]);
+    }
+  }
+  
+  function htmlAttachBubbledListeners(el,extensions)
+  {
+    if(!el.__pikantnyExtensions__)
+    {
+      /* copy listeners over */
+      htmlCopyBubbled((_attachLocalBinders(el)),extensions.attrListeners);
+      /* copy update listeners over */
+      htmlCopyBubbled((_attachLocalBinders(el)),extensions.attrUpdateListeners,true);
+      /* copy parent listeners over */
+      htmlCopyBubbled((_attachLocalBinders(el)),extensions.parentAttrListeners);
+      /* copy parent update listeners over */
+      htmlCopyBubbled((_attachLocalBinders(el)),extensions.parentAttrUpdateListeners,true);
+    }
+  }
+  
+  /* remember to propogate bubbled events onto new html nodes (do it gently) */
+  
+  /* add html listener to remove bubbled listeners properly */
+  document.addEventListener('htmlupdate',function(e){
+    
+    /* fetch current target listeners and parent bubbled listeners */
+    var __element = e.srcElement,
+        __extensions = (__element.__pikantnyExtensions__ || _attachLocalBinders(__element)),
+        __children = __querySelectorAll.call(__element,'*');
+    
+    for(var x=0,len=__children.length;x<len;x++)
+    {
+      htmlAttachBubbledListeners(__children[x],__extensions);
+    }
+    
+  });
+  
   if (typeof define === "function" && define.amd){
     define('pikantny',function(){return init;});
   }
