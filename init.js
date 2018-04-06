@@ -26,8 +26,6 @@
 
 /* test bubbled event add and removal */
 
-/* special cases for adding html, propogate style watchers and input events on adding them */
-
 /* custom property listeners when used in addEventListener */
 
 "use strict";
@@ -57,6 +55,10 @@ window.pikantny = (function(){
       __Double__ = {
         'value':['HTMLInputElement','HTMLTextAreaElement','HTMLSelectElement']
       },
+      
+      __Extended__ = [
+        'html'
+      ],
       
       /* helps with easier style listening changes as .style is an object created afterwards and acts differently than your standard dom property */
       __CSSList__ = Object.getOwnPropertyNames(document.body.style)
@@ -395,6 +397,11 @@ window.pikantny = (function(){
         }
       }
     }
+  }
+  
+  function processNewAttr(el,key)
+  {
+    return Object.defineProperty(el,key,descriptorValue({value:undefined,writable:true,enumerable:true,configurable:true},key));
   }
   
   function attachHtmlWatcher()
@@ -1211,7 +1218,7 @@ window.pikantny = (function(){
     }
     
     /* handle complicated `value` and `checked` and `selectedIndex` change listeners */
-    if(['checked','value','selectedIndex'].indexOf(key) !== -1)
+    else if(['checked','value','selectedIndex'].indexOf(key) !== -1)
     {
       /* if its an input and we are looking for checked, values, and selectedIndex, easy listener addons */
       if(['input','textarea'].indexOf(this.nodeName.toLowerCase()) !== -1)
@@ -1262,7 +1269,15 @@ window.pikantny = (function(){
         }
       }
     }
-    
+    else if(__element.getAttribute(__truekey) === null && __element[__truekey] === undefined && __Extended__.indexOf(__truekey) === -1)
+    {
+      processNewAttr(__element,__truekey);
+      var __children = __querySelectorAll.call(__element,'*');
+      for(var x=0,len=__children.length;x<len;x++)
+      {
+        processNewAttr(__children[x],__truekey);
+      }
+    }
     attachAttrEvent(__element,key,func);
   }
   
