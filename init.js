@@ -5,254 +5,587 @@
   - event propogation v/
   - styles v/
   - attributes v/
-  - globalized events - window?
+  - globalized events - window? v/
   - inputs setting values v/
-  - all text based operations fire one 'text|html'
-  - if prop doesn't exist create it on listener (default observable)
-  - add/remove observables (default/function)
+  - all text based operations fire one 'text|html' v/
+  - if prop doesn't exist create it on listener (default observable, attribute) setProperty, setAttribute, addEventListener (#default property)
+  - base non injected functions EX: querySelectorAll() => querySelectorAll.base() === non-injected
   
-  - rewrite to be dom extension hate friendly, do it for the haters
+  Major
+  * __pikantnyExtensions__ //extensions attached to each node
+  * __pikantnyKeyList__ //global injections normally attached to `window` or global object
+  
+  *** issues with styles resetting the descriptor (Garbage collection issue),
+      found chrome bug, ref: https://bugs.chromium.org/p/chromium/issues/detail?id=782776
+      doesn't break in KB `research workaround`
+  
+  *** addEventListenerupdate fires itself, need to circumvent
 */
+
+/* TODO */
+
+/* test bubbled event add and removal */
+
+/* special cases for adding html, propogate style watchers and input events on adding them */
+
+/* custom property listeners when used in addEventListener */
 
 "use strict";
 
 window.pikantny = (function(){
   
+  /* SCOPED LOCALS */
+  /* REGION */
+  
   /* The entire node list starting from eventTarget down the chain, the prototypal enheritance starts with EventTarget > Node > Element > HTMLElement > all */
   var __HTMLList__ = [
-       "HTMLVideoElement", "HTMLUnknownElement", "HTMLUListElement", "HTMLTrackElement", "HTMLTitleElement", "HTMLTextAreaElement", "HTMLTemplateElement", "HTMLTableSectionElement", "HTMLTableRowElement", "HTMLTableElement", "HTMLTableColElement", "HTMLTableCellElement", "HTMLTableCaptionElement", "HTMLStyleElement", "HTMLSpanElement", "HTMLSourceElement", "HTMLSlotElement", "HTMLShadowElement", "HTMLSelectElement", "HTMLScriptElement", "HTMLQuoteElement", "HTMLProgressElement", "HTMLPreElement", "HTMLPictureElement", "HTMLParamElement", "HTMLParagraphElement", "HTMLOutputElement", "HTMLOptionsCollection", "HTMLOptionElement", "HTMLOptGroupElement", "HTMLObjectElement", "HTMLOListElement", "HTMLModElement", "HTMLMeterElement", "HTMLMetaElement", "HTMLMenuElement", "HTMLMediaElement", "HTMLMarqueeElement", "HTMLMapElement", "HTMLLinkElement", "HTMLLegendElement", "HTMLLabelElement", "HTMLLIElement", "HTMLInputElement", "HTMLImageElement", "HTMLIFrameElement", "HTMLHtmlElement", "HTMLHeadingElement", "HTMLHeadElement", "HTMLHRElement", "HTMLFrameSetElement", "HTMLFrameElement", "HTMLFormElement", "HTMLFormControlsCollection", "HTMLFontElement", "HTMLFieldSetElement", "HTMLEmbedElement", "HTMLDocument", "HTMLDivElement", "HTMLDirectoryElement", "HTMLDialogElement", "HTMLDetailsElement", "HTMLDataListElement", "HTMLDListElement", "HTMLContentElement", "HTMLCollection", "HTMLCanvasElement", "HTMLButtonElement", "HTMLBodyElement", "HTMLBaseElement", "HTMLBRElement", "HTMLAudioElement", "HTMLAreaElement", "HTMLAnchorElement"
+       "HTMLVideoElement", "HTMLUnknownElement", "HTMLUListElement", "HTMLTrackElement", "HTMLTitleElement", "HTMLTextAreaElement", "HTMLTemplateElement", "HTMLTableSectionElement", "HTMLTableRowElement", "HTMLTableElement", "HTMLTableColElement", "HTMLTableCellElement", "HTMLTableCaptionElement", "HTMLStyleElement", "HTMLSpanElement", "HTMLSourceElement", "HTMLSlotElement", "HTMLShadowElement", "HTMLSelectElement", "HTMLScriptElement", "HTMLQuoteElement", "HTMLProgressElement", "HTMLPreElement", "HTMLPictureElement", "HTMLParamElement", "HTMLParagraphElement", "HTMLOutputElement", "HTMLOptionElement", "HTMLOptGroupElement", "HTMLObjectElement", "HTMLOListElement", "HTMLModElement", "HTMLMeterElement", "HTMLMetaElement", "HTMLMenuElement", "HTMLMediaElement", "HTMLMarqueeElement", "HTMLMapElement", "HTMLLinkElement", "HTMLLegendElement", "HTMLLabelElement", "HTMLLIElement", "HTMLInputElement", "HTMLImageElement", "HTMLIFrameElement", "HTMLHeadingElement", "HTMLHeadElement", "HTMLHRElement", "HTMLFrameSetElement", "HTMLFrameElement", "HTMLFormElement", "HTMLFontElement", "HTMLFieldSetElement", "HTMLEmbedElement", "HTMLDivElement", "HTMLDirectoryElement", "HTMLDialogElement", "HTMLDetailsElement", "HTMLDataListElement", "HTMLDListElement", "HTMLCanvasElement", "HTMLButtonElement", "HTMLBaseElement", "HTMLBRElement", "HTMLAudioElement", "HTMLAreaElement", "HTMLAnchorElement"
       ],
       
       __GlobalList__ = ["EventTarget","Node","Element","HTMLElement"].concat(__HTMLList__),
       
-      __blocked__ = ['dispatchEvent','Symbol','constructor','__proto__'],
+      /* items that should not be injected as they disrupt key actions */
+      __blocked__ = [
+        'dispatchEvent','Symbol','constructor','__proto__','stop','length','setAttribute','removeAttribute', 'addEventListener','removeEventListener','setProperty','removeProperty','getPropertyValue'
+      ],
       
-      /* helps with easier style listening changes as .style is an object created afterwards and acts differently than your standard */
-      __CSSInlineList = Object.getOwnPropertyNames(document.body.style),
+      /* items that have the same property name but are unique to the elements */
+      __DoubleList__ = [
+        'value'
+      ],
       
-      /* would like to watch for real css rule changes, needs more research especially with cross domain href css */
-      __CSSList__ = Array.prototype.slice.call(getComputedStyle(document.body)),
+      __Double__ = {
+        'value':['HTMLInputElement','HTMLTextAreaElement','HTMLSelectElement']
+      },
+      
+      /* helps with easier style listening changes as .style is an object created afterwards and acts differently than your standard dom property */
+      __CSSList__ = Object.getOwnPropertyNames(document.body.style)
+                    .concat(Array.prototype.slice.call(getComputedStyle(document.body)))
+                    .filter(function(v,i,ar){return (ar.indexOf(v) === i);}),
       
       /* all of these effect the text associated with an element */
       __TextPropertyList__ = ['textContent','innerHTML','innerText','outerHTML','outerText','appendChild','removeChild','replaceChild','insertAdjacentHTML','insertBefore'],
       
-      /* allowing us to see the original events */
-      __EventList__ = Object.keys(HTMLElement.prototype).filter(function(v){return (v.indexOf('on') === 0);});
-  
-  /* add original descriptors to a list? */
-  
-  function descriptorStandard(descriptor,key)
-  {
-    var __descriptor = descriptor,
-        __key = key,
-        __descSet = __descriptor.set,
-        __descGet = __descriptor.get,
-        __isTextBased = (__TextPropertyList__.indexOf(key) !== -1),
-        __oldValue;
-    
-    function __set(v)
-    {
-      var __event = init.event(__key);
-      __event.oldValue = __oldValue = __descGet.call(this);
-      __event.stopped = this.__stopped__;
-      __event.value = v;
-      if(this.dispatchEvent(__event))
-      {
-        if(__isTextBased)
-        {
-          var __event_text = init.event('text');
-              __event_text.oldValue = __oldValue;
-              __event_text.stopped = this.__stopped__;
-              __event_text.value = v;
-          
-          var __event_html = init.event('html');
-              __event_html.oldValue = __oldValue;
-              __event_html.stopped = this.__stopped__;
-              __event_html.value = v;
-          
-          if(this.dispatchEvent(__event_text) && this.dispatchEvent(__event_html))
-          {
-            __descSet.call(this,v);
-            
-            if(!this.__stopped__)
-            {
-              var __event_text_update = init.event('text',true);
-                  __event_text_update.oldValue = __oldValue;
-                  __event_text_update.stopped = this.__stopped__;
-                  __event_text_update.value = v;
-              this.dispatchEvent(__event_text_update);
-          
-              var __event_html_update = init.event('html',true);
-                  __event_html_update.oldValue = __oldValue;
-                  __event_html_update.stopped = this.__stopped__;
-                  __event_html_update.value = v;
-              this.dispatchEvent(__event_html_update);
-              
-              var __event_update = init.event(__key,true);
-                  __event_update.oldValue = __oldValue;
-                  __event_update.value = v;
-              this.dispatchEvent(__event_update);
-            }
-          }
-        }
-        else
-        {
-          __descSet.call(this,v);
-        
-          if(!this.__stopped__)
-          {
-            var __event_update = init.event(__key,true);
-                __event_update.oldValue = __oldValue;
-                __event_update.value = v;
-            this.dispatchEvent(__event_update);
-          }
-        }
-      }
-      this.__stopped__ = undefined;
-    }
-    
-    return {
-      get:__descGet,
-      set:__set,
-      enumerable:__descriptor.enumerable,
-      configurable:true
-    }
-  }
-  
-  function descriptorValue(descriptor,key)
-  {
-    var __descriptor = descriptor,
-        __key = key,
-        __oldValue;
-    
-    function __get()
-    {
-      return __descriptor.value;
-    }
-    
-    function __set(v)
-    {
-      if(__descriptor.writable)
-      {
-        var __event = init.event(__key);
-        __event.oldValue = __descriptor.value;
-        __event.stopped = this.__stopped__;
-        __event.value = v;
-        
-        
-        if(this.dispatchEvent(__event))
-        {
-          __descSet.call(this,v);
-
-          if(!this.__stopped__)
-          {
-            var __event_update = init.event(__key,true);
-            __event_update.oldValue = __oldValue;
-            __event_update.value = v;
-            
-            this.dispatchEvent(__event_update);
-          }
-        }
-        this.__stopped__ = undefined;
-      }
-    }
-    
-    return {
-      get:__get,
-      set:__set,
-      enumerable:__descriptor.enumerable,
-      configurable:true
-    }
-  }
-  
-  function descriptorFunction(descriptor,key)
-  {
-    var __descriptor = descriptor,
-        __key = key,
-        __descVal = __descriptor.value,
-        __oldValue,
-        __isTextBased = (__TextPropertyList__.indexOf(key) !== -1),
-        __action;
-    
-    function __set()
-    {
-      var __event = init.event(__key);
-      __event.arguments = arguments;
-      __event.method = __key;
-      __event.stopped = this.__stopped__;
+      /* allowing us to see the original events, and to skip observing when using addEventListener */
+      __EventList__ = Object.keys(HTMLElement.prototype).filter(function(v){return (v.indexOf('on') === 0);}),
       
-      if(this.dispatchEvent(__event))
-      {
-        if(__isTextBased)
-        {
-          var __event_text = init.event('text');
-              __event_text.oldValue = __oldValue = this.innerHTML;
-              __event_text.arguments = arguments;
-              __event_text.method = __key;
-              __event_text.stopped = this.__stopped__;
-          
-          var __event_html = init.event('html');
-              __event_html.oldValue = __oldValue = this.innerHTML;
-              __event_html.arguments = arguments;
-              __event_html.method = __key;
-              __event_html.stopped = this.__stopped__;
-          
-          if(this.dispatchEvent(__event_text) && this.dispatchEvent(__event_html))
-          {
-            __action = __descVal.apply(this,arguments);
-            
-            if(!this.__stopped__)
-            {
-              var __event_text_update = init.event('text',true);
-                  __event_text_update.oldValue = __oldValue;
-                  __event_text_update.arguments = arguments;
-                  __event_text_update.method = __key;
-                  __event_text_update.action = __action;
-                  __event_text_update.value = this.innerHTML;
-              this.dispatchEvent(__event_text_update);
-          
-              var __event_html_update = init.event('html',true);
-                  __event_html_update.oldValue = __oldValue;
-                  __event_html_update.arguments = arguments;
-                  __event_html_update.method = __key;
-                  __event_html_update.action = __action;
-                  __event_html_update.value = this.innerHTML;
-              this.dispatchEvent(__event_html_update);
-              
-              var __event_update = init.event(__key,true);
-                  __event_update.arguments = arguments;
-                  __event_update.method = __key;
-                  __event_update.action = __action;
-              this.dispatchEvent(__event_update);
-            }
-          }
-        }
-        else
-        {
-          __action = __descVal.apply(this,arguments);
-          if(!this.__stopped__)
-          {
-            var __event_update = init.event(__key,true);
-                __event_update.arguments = arguments;
-                __event_update.action = __action;
-            this.dispatchEvent(__event_update);
-          }
-        }
-      }
-      this.__stopped__ = undefined;
-      return __action;
+      /* setAttribute translators to fire events for their property counterparts */
+      __AttrTranslate__ = {
+        'class': 'className',
+        'tabindex': 'tabIndex'
+      },
+      
+      /* allows listening for all changes no matter what it is */
+      __all__ = '*';
+      
+      /* backup to allow complex listening actions */
+  var __addEventListener = EventTarget.prototype.addEventListener,
+      __removeEventListener = EventTarget.prototype.removeEventListener,
+
+      /* backup so we can overwrite the original to listen to changes just as properties as well as track new attributes */
+      __setAttribute = Element.prototype.setAttribute,
+      __removeAttribute = Element.prototype.removeAttribute,
+
+      /* track values for inputs */
+      __valueSelectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value'),
+      __valueInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'),
+      __valueTextAreaDescriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value'),
+      __checkedInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked'),
+      
+      /* used as a faster approach inside the htmlupdate for updating bubbled events */
+      __querySelectorAll = Object.getOwnPropertyDescriptor(Element.prototype,'querySelectorAll').value,
+      
+      /* track cssText property changes */
+      __cssTextDescriptor = Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype,'cssText');
+      
+      
+  
+  /* SCOPED LOCALS */
+  /* ENDREGION */
+  
+  /* OBJECT CLASSES */
+  /* REGION */
+  
+  /* The event object that gets passed to each listener */
+  function changeEvent(v)
+  {
+    /* stops bubbling of event */
+    this.stopPropagation = function()
+    {
+      this.bubbles = false;
+      this.__stopPropogation__ = !this.bubbles;
+    };
+    
+    /* stops event */
+    this.stopImmediatePropagation = function()
+    {
+      this.bubbles = false;
+      this.__stopImmediatePropogation__ = this.__stopPropogation__ = !this.bubbles;
+    };
+    
+    /* prevent the default action */
+    this.preventDefault = function()
+    {
+      this.__preventDefault__ = this.defaultPrevented = true;
+    };
+    
+    /* stop the update listeners from firing */
+    this.stop = function()
+    {
+      this.target.__pikantnyExtensions__.stop = this.stopped = true;
     }
     
-    return {
-      value:__set,
-      writable:__descriptor.writable,
-      enumerable:__descriptor.enumerable,
-      configurable:true
+    /* if the event can be cancelled (not implemented) */
+    this.cancelable = (v.cancelable || true);
+    
+    /* if default was prevented (not implemented) */
+    this.defaultPrevented = false;
+    
+    /* if the event can bubble */
+    this.bubbles = (v.bubbles || true);
+    
+    /* the current value of the property */
+    this.value = v.value;
+    
+    /* the old value of the property */
+    this.oldValue = v.oldValue;
+    
+    /* the target node the event is being ran on */
+    this.target = v.target;
+    
+    /* the name of the property */
+    this.attr = v.attr;
+    
+    /* passed arguments if the property was a method */
+    this.arguments = v.arguments;
+    
+    /* the returned result of running that method (update only) */
+    this.action = v.action;
+    
+    /* the original element that fired the event */
+    this.srcElement = v.srcElement;
+    
+    /* the name of the listener */
+    this.type = v.type;
+    
+    /* default stopped telling if update listeners should be stopped */
+    this.stopped = false;
+    
+    /* tells if the update listeners have been stopped or not */
+    if(v.stop) this.target.__pikantnyExtensions__.stop = this.stopped = true;
+  }
+  
+  /* This holds all listeners associated with a particular element */
+  function localBinders()
+  {
+    /* node's property listeners */
+    this.attrListeners = {};
+    
+    /* node's property update listeners */
+    this.attrUpdateListeners = {};
+    
+    /* any bubbled property listeners */
+    this.parentAttrListeners = {};
+    
+    /* any bubbled property update listeners */
+    this.parentAttrUpdateListeners = {};
+    
+    /* all events tied to the node */
+    this.events = {};
+    
+    /* all bubbled Events */
+    this.bubbledEvents = {};
+    
+    /* Extra logic properties */
+    
+    /* if the stop update listeners has been called */
+    this.stop = undefined;
+    
+    /* if an inline style event has been called, tells setProperty not to run listeners as the style already did */
+    this.inlinestyle = undefined;
+    
+    /* input listener helpers */
+    this.preValue = '';
+    this.descValue = undefined;
+    this.preChecked = '';
+    this.descChecked = undefined;
+    this.isPressed = false;
+  }
+  
+  /* OBJECT CLASSES */
+  /* ENDREGION */
+  
+  /* EVENT HELPER METHODS */
+  /* REGION */
+  
+  /* Helper method to loop through listeners and run them, node listeners */
+  function loopListener(looper,e)
+  {
+    /* listeners array */
+    var _looper = looper;
+    for(var _x=0,_e=e,_len=looper.length;_x<_len;_x++)
+    {
+      /* loop and call listeners */
+      looper[_x](_e);
+      
+      /* if stopImmediatePropogation method was called then we stop calling listeners on this node  */
+      if(_e.__stopImmediatePropogation__ !== undefined) break;
     }
   }
   
+  /* Helper method to loop through all bubbled listeners and run them parent nodes */
+  function loopBubbledListener(looper,e)
+  { 
+    /* bubbled listeners array */
+    var _looper = looper;
+    for(var _x=0,_e=e,_len=looper.length,loop;_x<_len;_x++)
+    {
+      loop = looper[_x];
+      /* get the parent node for the event */
+      _e.target = loop.parent;
+      
+      /* call bubbled parent node listeners */
+      loop.func(_e);
+      
+      /* stop bubbling if stopImmediatePropogation or stopPropogation is called */
+      if(_e.__stopPropogation__ !== undefined) break;
+    }
+  }
+  
+  /* checks if the element has the above extensions, if not it adds them */
+  function attachLocalBinders(el)
+  {
+    if(typeof el.__pikantnyExtensions__ === 'undefined') Object.defineProperty(el,'__pikantnyExtensions__',descriptorHidden(new localBinders()));
+    return el.__pikantnyExtensions__;
+  }
+  
+  /* note, need to add into account bubbled listeners on nodes that are post inserted into the dom */
+  /* .__pikantnyExtensions__.attrListeners, .__pikantnyExtensions__.parentAttrListeners */
+  
+  function attachAttrEvent(el,key,func)
+  {
+    var __element = el,
+        __children = __querySelectorAll.call(__element,'*'),
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __isMultipleKeys = (typeof key === 'object' && !!key.length);
+    
+    /* standard */
+    if(__isMultipleKeys)
+    {
+      for(var x=0,len=key.length,__isUpdate,__listener,__key;x<len;x++)
+      {
+        __isUpdate = (key[x].indexOf('update') !== -1);
+        __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners');
+        __key = (key[x].replace('update',''))
+        
+        if(!__extensions[__listener][__key]) __extensions[__listener][__key] = [];
+        __extensions[__listener][__key].push(func);
+        
+        /* bubbled */
+        attachAttrBubbled(__element,__children,key[x],func);
+      }
+    }
+    else
+    {
+      var __isUpdate = (key.indexOf('update') !== -1),
+          __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners'),
+          __key = (key.replace('update',''));
+      
+      if(!__extensions[__listener][__key]) __extensions[__listener][__key] = [];
+      __extensions[__listener][__key].push(func);
+      
+      /* bubbled */
+      attachAttrBubbled(__element,__children,key,func);
+    }
+  }
+  
+  function attachAttrBubbled(el,children,key,func)
+  {
+    var __isUpdate = (key.indexOf('update') !== -1),
+        __listener = (!__isUpdate ? 'parentAttrListeners' : 'parentAttrUpdateListeners'),
+        __key = (key.replace('update',''));
+    
+    for(var x=0,len=children.length,ext;x<len;x++)
+    {
+      ext = (children[x].__pikantnyExtensions__ || attachLocalBinders(children[x]));
+      if(!ext[__listener][__key]) ext[__listener][__key] = [];
+      ext[__listener][__key].push({func:func,parent:el});
+    }
+  }
+  
+  function removeAttrEvent(el,key,func)
+  {
+    var __element = el,
+        __children = __querySelectorAll.call(__element,'*'),
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __isMultipleKeys = (typeof key === 'object' && !!key.length),
+        __stringFunc = func.toString(),
+        __listeners = [];
+    
+    /* standard */
+    if(__isMultipleKeys)
+    {
+      for(var x=0,len=key.length,listeners,__isUpdate,__listener,__key;x<len;x++)
+      {
+        __isUpdate = (key[x].indexOf('update') !== -1);
+        __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners');
+        __key = (key[x].replace('update',''))
+        
+        listeners = __extensions[__listener][__key];
+        if(!!listeners)
+        {
+          inner:for(var i=0,lenn=listeners.length;i<lenn;i++)
+          {
+            if(listeners[i].toString() === __stringFunc)
+            {
+              listeners.splice(i,1);
+              break inner;
+            }
+          }
+        }
+        
+        /* bubbled */
+        removeAttrBubbled(__children,key[x],func);
+      }
+    }
+    else
+    {
+      var __isUpdate = (key.indexOf('update') !== -1),
+          __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners'),
+          __key = (key.replace('update',''));
+      
+      __listeners = __extensions[__listener][__key];
+      if(!!__listeners)
+      {
+        inner:for(var i=0,lenn=__listeners.length;i<lenn;i++)
+        {
+          if(__listeners[i].toString() === __stringFunc)
+          {
+            __listeners.splice(i,1);
+            break inner;
+          }
+        }
+      }
+      
+      /* bubbled */
+      removeAttrBubbled(__children,key,func);
+    }
+  }
+  
+  function removeAttrBubbled(children,key,func)
+  {
+    var __stringFunc = func.toString(),
+        __isUpdate = (key.indexOf('update') !== -1),
+        __listener = (!__isUpdate ? 'parentAttrListeners' : 'parentAttrUpdateListeners'),
+        __key = (key.replace('update',''));
+    
+    outer:for(var x=0,len=children.length,ext,listeners;x<len;x++)
+    {
+      ext = (children[x].__pikantnyExtensions__ || attachLocalBinders(children[x]));
+      listeners = ext[__listener][__key];
+      if(!!listeners)
+      {
+        inner:for(var i=0,lenn=listeners.length;i<lenn;i++)
+        {
+          if(listeners[i].func.toString() === __stringFunc)
+          {
+            listeners.splice(i,1);
+            break inner;
+          }
+        }
+      }
+    }
+  }
+  
+  function attachHtmlWatcher()
+  {
+    function htmlCopyBubbled(parent,el,ext,listeners,isUpdate)
+    {
+      var __listener = (!isUpdate ? 'parentAttrListeners' : 'parentAttrUpdateListeners');
+
+      for(var x=0,keys=Object.keys(listeners),len=keys.length,key;x<len;x++)
+      {
+        key = keys[x];
+        if(__CSSList__.indexOf(key) !== -1 && listeners[key].length !== 0) attachStyleListeners(el,getInlineKey(key),getStyleKey(key));
+        
+        if(['value','checked','selectedIndex'].indexOf(key) !== -1 && listeners[key].length !== 0) attachInputListeners(el);
+        
+        if(listeners[key].length !== 0 && listeners[key][0].parent !== undefined)
+        {
+          ext[__listener][key] = listeners[key].slice();
+        }
+        else
+        {
+          ext[__listener][key] = [];
+          for(var i =0,lenn=listeners[key].length;i<lenn;i++)
+          {
+            ext[__listener][key][i] = {parent:parent,func:listeners[key][i]};
+          }
+        }
+      }
+    }
+
+    function htmlAttachBubbledListeners(parent,el,extensions)
+    {
+      var __target = el,
+          __extensions = attachLocalBinders(el);
+      /* copy listeners over */
+      htmlCopyBubbled(parent,__target,__extensions,extensions.attrListeners);
+      /* copy update listeners over */
+      htmlCopyBubbled(parent,__target,__extensions,extensions.attrUpdateListeners,true);
+      /* copy parent listeners over */
+      htmlCopyBubbled(parent,__target,__extensions,extensions.parentAttrListeners);
+      /* copy parent update listeners over */
+      htmlCopyBubbled(parent,__target,__extensions,extensions.parentAttrUpdateListeners,true);
+    }
+    
+    /* remember to propogate bubbled events onto new html nodes (do it gently) */
+    /* add html listener to remove bubbled listeners properly */
+    document.documentElement.addEventListener('htmlupdate',function(e){
+
+      /* fetch current target listeners and parent bubbled listeners */
+      var __element = e.srcElement,
+          __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+          __children = __querySelectorAll.call(__element,'*');
+
+      for(var x=0,len=__children.length,child;x<len;x++)
+      {
+        if(__children[x].__pikantnyExtensions__ === undefined) htmlAttachBubbledListeners(__element,__children[x],__extensions);
+      }
+
+    });
+  }
+  
+  /* handle ability to stop an update */
+  if(Element.prototype.stop === undefined)
+  {
+      Element.prototype.stop = function(){ 
+          (this.__pikantnyExtensions__ || attachLocalBinders(this)).stop = true;
+          return this;
+      };
+  }
+  
+  /* ENDREGION */
+  
+  /* SET/UPDATE METHODS */
+  /* REGION */
+  
+  /* runs the associated pre value set listeners */
+  function _setStandard(el, prop, val, oldValue, extensions, stop, args, action)
+  {
+    /* create event */
+    var e = new changeEvent({
+        value: val,
+        oldValue: oldValue,
+        attr: prop,
+        type: prop,
+        target: el,
+        srcElement: el,
+        stop: stop,
+        arguments: args,
+        action: action
+    }),
+    __extensions = extensions;
+    
+    /* check if the node is extended */
+    if(__extensions !== undefined)
+    {
+      /* get standard and bubbled listeners */
+      var localAttrListeners = __extensions.attrListeners,
+          localParentAttrListeners = __extensions.parentAttrListeners,
+          all = __all__;
+      
+      /* loop local listeners first */
+      if(localAttrListeners[prop] !== undefined)
+      {
+        loopListener(localAttrListeners[prop],e);
+      }
+      
+      /* if a * (all) listener was added, loop them */
+      if(e.__stopImmediatePropogation__ === undefined && localAttrListeners[all] !== undefined)
+      {
+        loopListener(localAttrListeners[all],e);
+      }
+      
+      /* loop bubbled listeners */
+      if(e.__stopPropogation__ === undefined && localParentAttrListeners[prop] !== undefined)
+      {
+        loopBubbledListener(localParentAttrListeners[prop],e);
+      }
+      
+      /* if a * (all) bubbled listener was added, loop them */
+      if(e.__stopPropogation__ === undefined && localParentAttrListeners[all] !== undefined)
+      {
+        loopBubbledListener(localParentAttrListeners[all],e);
+      }
+    }
+    
+    if(e.__preventDefault__ !== undefined) return false;
+    return true;
+  }
+  
+  /* runs the associated post value set update listeners */
+  function _updateStandard(el, prop, val, oldValue, extensions, args, action)
+  {
+    /* create event */
+    var e = new changeEvent({
+        value: val,
+        oldValue: oldValue,
+        attr: prop,
+        type: prop + 'update',
+        target: el,
+        srcElement: el,
+        arguments: args,
+        action: action
+    }),
+    __extensions = extensions;
+    
+    /* check if the node is extended */
+    if(__extensions !== undefined)
+    {
+      /* get standard and bubbled update listeners */
+      var localAttrListeners = __extensions.attrUpdateListeners,
+          localParentAttrListeners = __extensions.parentAttrUpdateListeners,
+          all = __all__;
+      
+      /* loop local listeners first */
+      if(localAttrListeners[prop] !== undefined)
+      {
+        loopListener(localAttrListeners[prop],e);
+      }
+      
+      /* if a * (all) listener was added, loop them */
+      if(e.__stopImmediatePropogation__ === undefined && localAttrListeners[all] !== undefined)
+      {
+        loopListener(localAttrListeners[all],e);
+      }
+      
+      /* loop bubbled listeners */
+      if(e.__stopPropogation__ === undefined && localParentAttrListeners[prop] !== undefined)
+      {
+        loopBubbledListener(localParentAttrListeners[prop],e);
+      }
+      
+      /* if a * (all) bubbled listener was added, loop them */
+      if(e.__stopPropogation__ === undefined && localParentAttrListeners[all] !== undefined)
+      {
+        loopBubbledListener(localParentAttrListeners[all],e);
+      }
+    }
+    
+    if(e.__preventDefault__ !== undefined) return false;
+    return true;
+  }
+  
+  /* ENDREGION */
+  
+  /* COMMON DESCRIPTORS GET/SET, VALUE, FUNCTION, HIDDEN */
+  /* REGION */
+  
+  /* hidden properties */
   function descriptorHidden(value)
   {
+    /* creates a descriptor that is not loopable/enumerable */
     return {
       value:value,
       writable:true,
@@ -261,496 +594,619 @@ window.pikantny = (function(){
     }
   }
   
-  function descriptorEvent(key,update)
+  /* for all standard prototypes that contain getters and setters */
+  function descriptorStandard(descriptor,key,extended)
   {
-    var __value,
-        __key = key+(update ? 'update' : '');
+    /* closured descriptor, used methods and local var's for increased perf */
+    var __descriptor = descriptor,
+        __key = key,
+        __extended = extended,
+        __descSet = __descriptor.set,
+        __descGet = __descriptor.get,
+        __update = _updateStandard,
+        __set = _setStandard,
+        __extensions = {},
+        __value,
+        __oldValue;
     
-    function get()
+    /* if extended passed EX: `innerHTML` will fire standard event as well as `html` event */
+    function setExtended(v)
     {
-      return __value;
+      /* get the current value of this property */
+      __oldValue = (__value || __descGet.call(this));
+      
+      /* get the extensions for this node */
+      __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
+      
+      if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop) === true)
+      {
+        if(__set(this,__extended,v,__oldValue,__extensions,__extensions.stop) === true)
+        {
+          /* if the default was not prevented, set the value */
+          __value = v;
+          __descSet.call(this,v);
+
+          /* if update listeners were not stopped run them */
+          if(__extensions.stop === undefined)
+          {
+            __update(this,__key,v,__oldValue,__extensions);
+            __update(this,__extended,v,__oldValue,__extensions);
+          }
+        }
+      }
+      
+      /* reset update stop */
+      __extensions.stop = undefined;
     }
     
+    /* main setter method */
     function set(v)
     {
-      if(this.events === undefined) this.events = {};
-      if(this.events[__key] === undefined) this.events[__key] = [];
+      /* get the current value of this property */
+      __oldValue = (__value || __descGet.call(this));
       
-      if(typeof v === undefined && __value !== undefined)
+      /* get the extensions for this node */
+      __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
+      
+      /* run the pre value set listeners */
+      if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop) === true)
       {
-        this.removeEventListener(__key,this.events[__key][0]);
-        this.events[__key].shift();
+        /* if the default was not prevented, set the value */
+        __value = v;
+        __descSet.call(this,v);
+
+        /* if update listeners were not stopped run them */
+        if(__extensions.stop === undefined) __update(this,__key,v,__oldValue,__extensions);
       }
       
-      if(typeof v !== 'function'){ __value = v; return;}
+      /* reset update stop */
+      __extensions.stop = undefined;
+    }
+    
+    /* return new descriptor */
+    return {
+      get:descriptor.get,
+      set:(__extended !== undefined ? setExtended : set),
+      enumerable:descriptor.enumerable,
+      configurable:true
+    }
+  }
+  
+  /* for value based prototypes that contain value and writable, converts them to getter setter descriptors */
+  function descriptorValue(descriptor,key,extended)
+  {
+    /* closured descriptor, used methods and local var's for increased perf */
+    var __descriptor = descriptor,
+        __key = key,
+        __extended = extended,
+        __update = _updateStandard,
+        __set = _setStandard,
+        __extensions = {},
+        __writable = descriptor.writable,
+        __value = __descriptor.value,
+        __oldValue;
+    
+    /* getter method, returns current value */
+    function get()
+    {
+      return (__value || __descriptor.value);
+    }
+    
+    function setExtended(v)
+    {
+      /* if the property was not supposed to be writable do not let it to be set */
+      if(__writable)
+      {
+        /* get the current value of this property */
+        __oldValue = (__value || __descriptor.value);
+
+        /* get the extensions for this node */
+        __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
+
+        if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop) === true)
+        {
+          if(__set(this,__extended,v,__oldValue,__extensions,__extensions.stop) === true)
+          {
+            /* if the default was not prevented, set the value */
+            __value = v;
+            __descriptor.value = v;
+
+            /* if update listeners were not stopped run them */
+            if(__extensions.stop === undefined)
+            {
+              __update(this,__key,v,__oldValue,__extensions);
+              __update(this,__extended,v,__oldValue,__extensions);
+            }
+          }
+        }
+      }
       
-      var __events = this.events[__key];
+      /* reset update stop */
+      __extensions.stop = undefined;
+    }
+    
+    /* main setter method */
+    function set(v)
+    {
+      /* if the property was not supposed to be writable do not let it to be set */
+      if(__writable)
+      {
+        /* get the current value of this property */
+        __oldValue = (__value || __descriptor.value);
+        
+        /* get the extensions for this node */
+        __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
+        
+        /* run the pre value set listeners */
+        if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop) === true)
+        {
+          /* if the default was not prevented, set the value */
+          __value = v;
+          __descriptor.value = v;
           
-      for(var x=0,len=__events.length;x<len;x++)
-      {
-        this.removeEventListener(__key,__events[x]);
+          /* if update listeners were not stopped run them */
+          if(__extensions.stop === undefined) __update(this,__key,v,__oldValue,__extensions);
+        } 
       }
       
-      if(__value === undefined)
+      /* reset update stop */
+      __extensions.stop = undefined;
+    }
+    
+    /* return new descriptor */
+    return {
+      get:get,
+      set:(__extended ? setExtended : set),
+      enumerable:descriptor.enumerable,
+      configurable:true
+    }
+  }
+  
+  /* for function based prototypes that contain value and writable and the default value is a function */
+  function descriptorFunction(descriptor,key,extended)
+  {
+    /* closured descriptor, used methods and local var's for increased perf */
+    var __descriptor = descriptor,
+        __key = key,
+        __extended = extended,
+        __descVal = descriptor.value,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __extensions = {},
+        __action;
+    
+    function setExtended()
+    {
+      /* get the extensions for this node */
+      __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
+      
+      /* run the pre method activation listeners */
+      if(__set(this,__key,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
       {
-        __events.unshift(v);
+        if(__set(this,__extended,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+        {
+          /* run the associated method */
+          __action = __descVal.apply(this,arguments);
+
+          /* we don't want to create a circular reference */
+          if(__key === 'addEventListener' && arguments[0] === 'addEventListenerupdate') __extensions.stop = true;
+
+          /* if update listeners were not stopped run them */
+          if(__extensions.stop === undefined)
+          {
+            __update(this,__key,undefined,undefined,__extensions,arguments,__action);
+            __update(this,__extended,undefined,undefined,__extensions,arguments,__action);
+          }
+        }
+      }
+      
+      /* reset update stop */
+      __extensions.stop = undefined;
+      return __action;
+    }
+    
+    /* allows quickly running the original function and not the observable function */
+    setExtended.base = __descVal;
+    
+    /* the new function that will be used as the value for this descriptor */
+    function set()
+    {
+      /* get the extensions for this node */
+      __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
+      
+      /* run the pre method activation listeners */
+      if(__set(this,__key,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+      {
+        /* run the associated method */
+        __action = __descVal.apply(this,arguments);
+
+        /* we don't want to create a circular reference */
+        if(__key === 'addEventListener' && arguments[0] === 'addEventListenerupdate') __extensions.stop = true;
+
+        /* if update listeners were not stopped run them */
+        if(__extensions.stop === undefined) __update(this,__key,undefined,undefined,__extensions,arguments,__action);
+      }
+      
+      /* reset update stop */
+      __extensions.stop = undefined;
+      return __action;
+    }
+    
+    /* allows quickly running the original function and not the observable function */
+    set.base = __descVal;
+    
+    /* return new descriptor */
+    return {
+      value:(__extended !== undefined ? setExtended : set),
+      writable:descriptor.writable,
+      enumerable:descriptor.enumerable,
+      configurable:true
+    }
+  }
+  
+  /* ENDREGION */
+  
+  /* SETATTRIBUTE DESCRIPTORS AND OVERWRITES */
+  /* REGION */
+  
+  /* handle attribute setting */
+  Element.prototype.setAttribute = descriptorSetAttribute;
+  Element.prototype.removeAttribute = descriptorRemoveAttribute;
+  
+  /* Used in connection with attribute nodes, as they update through these properties */
+  Object.defineProperty(Node.prototype,'nodeValue',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'nodeValue'),'nodeValue'));
+  Object.defineProperty(Node.prototype,'textContent',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'textContent'),'textContent'));
+  
+  /* some browsers don't support the value property */
+  var __valDescriptor = Object.getOwnPropertyDescriptor(Attr.prototype,'value');
+  if(__valDescriptor) Object.defineProperty(Attr.prototype,'value',descriptorAttribute(__valDescriptor,'value'));
+  
+  /* applied for if attributes are set via the: element.attributes NamedNodeMap, Examples: element.attributes.class.nodeValue,element.attributes.class.textContent */
+  function descriptorAttribute(descriptor,key)
+  {
+    /* closured descriptor, used methods and local var's for increased perf */
+    var __descriptor = descriptor,
+        __key = key,
+        __descSet = __descriptor.set,
+        __descGet = __descriptor.get,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __element = {},
+        __extensions = {},
+        __value,
+        __oldValue,
+        __cssRules;
+    
+    /* main setter method */
+    function set(v)
+    {
+      /* we bind to nodeValue, textContent from the Node prototype, for this we must check to make sure we are in fact on a Attr object */
+      if(this instanceof Attr)
+      {
+        /* fetch the old value */
+        __oldValue = (__value || __descGet.call(this));
+        
+        /* element that holds this attribute */
+        __element = this.ownerElement;
+        
+        /* attribute key name */
+        __key = this.nodeName;
+        
+        /* get the current extensions */
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
+        
+        /* run the pre value set listeners */
+        if(__set(__element,__key,v,__oldValue,__extensions,__extensions.stop) === true)
+        {
+          /* if the key that is being changed is the style attribute we must handle this differently by letting the individual style listeners fire first */
+          if(__key === 'style')
+          {
+            /* splits a inline style: "margin:10px;padding:5px;" into an object {margin:"10px",padding:"5px"} */
+            __cssRules = getCSSTextChanges(__oldValue,value);
+            
+            /* loop and set, when set the attribute is automatically updated */
+            for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+            {
+              key = keys[x];
+              __element.style[key] = __cssRules[key];
+            }
+          }
+          
+          /* if the key is not a style set the attribute */
+          if(__key !== 'style')
+          {
+            if(__AttrTranslate__[key] !== undefined)
+            {
+              if(__set(__element,__AttrTranslate__[key],v,__oldValue,__extensions,__extensions.stop) === true)
+              {
+                __value = v;
+                __descSet.call(this,v);
+              }
+            }
+            else
+            {
+              __value = v;
+              __descSet.call(this,v);
+            }
+          }
+          
+          /* if update listeners were not stopped, run them */
+          if(__extensions.stop === undefined) 
+          {
+            __update(__element,__key,v,__oldValue,__extensions);
+            if(__AttrTranslate__[key] !== undefined) __update(__element,__AttrTranslate__[key],v,__oldValue,__extensions);
+          }
+        }
+        
+        /* reset update stop */
+        __extensions.stop = undefined;
       }
       else
       {
-        __events[0] = v;
-      }
-      
-      for(var x=0,len=__events.length;x<len;x++)
-      {
-        this.addEventListener(__key,__events[x]);
+        /* all other instance types just run their redefined functionality */
+        __value = v;
+        return __descSet.call(this,v);
       }
     }
     
+    /* return the getter setter descriptor */
     return {
-      get:get,
+      get:descriptor.get,
+      set:set,
+      enumerable:descriptor.enumerable,
+      configurable:true
+    };
+  }
+  
+  /* for when `setAttribute` method is ran to apply to standard listeners and property listeners. Example: `class` fires all `class` listeners
+     if style is set all style listeners must be properly applied */
+  function descriptorSetAttribute(key,value)
+  {
+    /* closured descriptor, used methods and local var's for increased perf */
+    var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined),
+        __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this)),
+        __cssRules;
+    
+    /* run the pre value set listeners for the method and the attr name */
+    if(_setStandard(this,'setAttribute',undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+    {
+      if(_setStandard(this,key,value,__oldValue,__extensions,__extensions.stop) === true)
+      {
+        /* if the key is style fire the style changes on the style object */
+        if(key === 'style')
+        {
+          /* convert string to object */
+          __cssRules = getCSSTextChanges(__oldValue,value);
+          for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+          {
+            key = keys[x];
+            this.style[key] = __cssRules[key];
+          }
+        }
+
+        /* run setAttribute unless the key is style as the attribute is already is already set inline */
+        if(key !== 'style')
+        {
+          if(__AttrTranslate__[key] !== undefined)
+          {
+            if(_setStandard(this,__AttrTranslate__[key],value,__oldValue,__extensions,__extensions.stop) === true)
+            {
+              __setAttribute.call(this,key,value);
+            }
+          }
+          else
+          {
+            __setAttribute.call(this,key,value);
+          }
+        }
+
+        /* if update is not stopped run update listeners */
+        if(__extensions.stop === undefined)
+        {
+          _updateStandard(this,'setAttribute',undefined,undefined,__extensions,__extensions.stop,arguments);
+          _updateStandard(this,key,value,__oldValue,__extensions,__extensions.stop,arguments);
+          if(__AttrTranslate__[key] !== undefined) _updateStandard(this,__AttrTranslate__[key],value,__oldValue,__extensions,__extensions.stop,arguments);
+        }
+      }
+    }
+    
+    /* reset update stop */
+    __extensions.stop = undefined;
+    return undefined;
+  }
+  
+  /* for when `removeAttribute` method is ran to apply to standard listeners, if style is removed all style events must be properly fired */
+  function descriptorRemoveAttribute(key)
+  {
+    /* closured descriptor, used methods and local var's for increased perf */
+    var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined),
+        __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this)),
+        __cssRules;
+    
+    /* run the pre value remove listeners for the method and the attr name */
+    if(_setStandard(this,'removeAttribute',undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+    {
+      if(_setStandard(this,key,undefined,__oldValue,__extensions,__extensions.stop) === true)
+      {
+        /* if style attribute fire individual inline style listeners */
+        if(key === 'style')
+        {
+          /* convert string to object */
+          __cssRules = getCSSTextChanges(__oldValue,value);
+          for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+          {
+            key = keys[x];
+            this.style[key] = __cssRules[key]
+          }
+        }
+        
+        /* remove the attribute from the element */
+        if(__AttrTranslate__[key] !== undefined)
+        {
+          if(_setStandard(this,__AttrTranslate__[key],undefined,__oldValue,__extensions,__extensions.stop) === true)
+          {
+            __removeAttribute.call(this,key);
+          }
+        }
+        else
+        {
+          __removeAttribute.call(this,key);
+        }
+        
+        /* if update is not stopped run update listeners */
+        if(__extensions.stop === undefined)
+        {
+          _updateStandard(this,'removeAttribute',undefined,undefined,__extensions,__extensions.stop,arguments);
+          _updateStandard(this,key,undefined,__oldValue,__extensions,__extensions.stop,arguments);
+          if(__AttrTranslate__[key] !== undefined) _updateStandard(this,__AttrTranslate__[key],undefined,__oldValue,__extensions,__extensions.stop,arguments);
+        }
+      }
+    }
+    
+    /* reset update stop */
+    __extensions.stop = undefined;
+    
+    return undefined;
+  }
+  
+  /* ENDREGION */
+  
+  /* EVENT DESCRIPTORS AND OVERWRITES */
+  /* REGION */
+  
+  /* handle event recording */
+  EventTarget.prototype.addEventListener = descriptorAddEventListener;
+  EventTarget.prototype.removeEventListener = descriptorRemoveEventListener;
+  
+  /* applied for inline `onclick`, `onkeyup`, etc. like properties, EX: `element.onclick = function(){}` fires event */
+  function descriptorEvent(descriptor,key)
+  {
+    /* closured descriptor, used methods and local var's for increased perf */
+    var __descriptor = descriptor,
+        __key = key,
+        __descSet = __descriptor.set,
+        __descGet = __descriptor.get,
+        __update = _updateStandard,
+        __set = _setStandard,
+        __extensions = {},
+        __value,
+        __oldValue;
+    
+    /* main setter method */
+    function set(v)
+    {
+      /* get the old event */
+      __oldValue = (__value || __descGet.call(this));
+      
+      /* get the current extensions */
+      __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
+      
+      /* run the pre value set listeners */
+      if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop) === true)
+      {
+        /* set the new value */
+        __value = v;
+        __descSet.call(this,v);
+        
+        /* if update listeners were not stopped run them */
+        if(__extensions.stop === undefined) __update(this,__key,v,__extensions,__oldValue);
+        
+        /* add to event object for viewing */
+        listenerEventIntersect(this,__key,v,false,__oldValue);
+      }
+      
+      /* reset update stop */
+      __extensions.stop = undefined;
+    }
+    
+    /* return new descriptor */
+    return {
+      get:descriptor.get,
       set:set,
       enumerable:true,
       configurable:true
     };
   }
   
-  function descriptorAttribute(descriptor,key)
+  /* process Event, controls all listener access */
+  function descriptorAddEventListener(key,func)
   {
-    var __descriptor = descriptor,
-        __key = key,
-        __descSet = __descriptor.set,
-        __descGet = __descriptor.get,
-        __oldValue;
+    /* closured local var's for increased perf */
+    var __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
     
-    function __set(v)
+    if(_setStandard(this,'addEventListener',undefined,undefined,__extensions,__extensions.stop,arguments) === true)
     {
-      if(this.nodeType === 2)
-      {
-        var __event = init.event(this.nodeName);
-        __event.oldValue = __oldValue = __descGet.call(this);
-        __event.stopped = this.ownerElement.__stopped__;
-        __event.value = v;
-        
-        if(this.ownerElement.dispatchEvent(__event))
-        {
-          __descSet.call(this,v);
+      /* prior for standard events */
+      __addEventListener.call(this,key,func);
 
-          if(!this.ownerElement.__stopped__)
-          {
-            var __event_update = init.event(this.nodeName,true);
-            __event_update.oldValue = __oldValue;
-            __event_update.value = v;
-            this.ownerElement.dispatchEvent(__event_update);
-          }
-        }
-        this.ownerElement.__stopped__ = undefined;
+      if(__extensions.stop === undefined)
+      {
+        _updateStandard(this,'addEventListener',undefined,undefined,__extensions,__extensions.stop,arguments);
+      }
+
+      if(__EventList__.indexOf('on'+key) === -1)
+      {
+        /* post for adding to updateStandard too soon */
+        processEvent.apply(this,arguments); 
       }
       else
       {
-        return __descSet.call(this,v);
+        /* add to event object for viewing */
+        listenerEventIntersect(this,key,func,false);
       }
-    }
-    
-    return {
-      get:__descGet,
-      set:__set,
-      enumerable:__descriptor.enumerable,
-      configurable:true
-    };
-  }
-  
-  function descriptorSetAttribute(key,value)
-  {
-    var __event = init.event(key),
-        __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined);
-    __event.arguments = arguments;
-    __event.stopped = this.__stopped__;
-    __event.oldValue = __oldValue;
-    __event.value = value;
-    
-    if(this.dispatchEvent(__event))
-    {
-      /* handle 'style' attribute changes */
-      if(key === 'style')
-      {
-        var __cssRules = getCSSTextChanges(__oldValue,value);
-        for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
-        {
-          key = keys[x];
-          this.style[key] = __cssRules[key];
-        }
-      }
-      else
-      {
-        this.__setAttribute__.call(this,key,value);
-      }
-      if(!this.__stopped__)
-      {
-        var __event_update = init.event(key,true);
-        __event_update.arguments = arguments;
-        __event_update.action = undefined;
-        __event_update.oldValue = __oldValue;
-        __event_update.value = value;
-        this.dispatchEvent(__event_update);
-      }
-    }
-    
+    } 
+    __extensions.stop = undefined;
     return undefined;
   }
   
-  function descriptorRemoveAttribute(key)
+  /* process event removal, controls listener access removal */
+  function descriptorRemoveEventListener(key,func)
   {
-    var __event = init.event(key),
-        __oldValue = this.attributes.getNamedItem(key).value,
-        __action = null;
-    __event.arguments = arguments;
-    __event.stopped = this.__stopped__;
-    __event.oldValue = __oldValue;
-    __event.value = undefined;
-    if(this.dispatchEvent(__event))
+    /* closured local var's for increased perf */
+    var __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
+    if(_setStandard(this,'removeEventListener',undefined,undefined,__extensions,__extensions.stop,arguments) === true)
     {
-      __action = this.__removeAttribute__.call(this,key);
-      if(!this.__stopped__)
+      __removeEventListener.call(this,key,func);
+      if(__EventList__.indexOf('on'+key) === -1)
       {
-        var __event_update = init.event(key,true);
-        __event_update.arguments = arguments;
-        __event_update.action = __action;
-        __event_update.oldValue = __oldValue;
-        __event_update.value = undefined;
-        this.dispatchEvent(__event_update);
+        processEventRemoval.apply(this,arguments);
       }
-    }
-    
-    return __action;
-  }
-  
-  function descriptorInlineStyle(descriptor,element,key,keyProper)
-  {
-    var __descriptor = descriptor,
-        __key = key,
-        __keyProper = keyProper,
-        __element = element,
-        __oldValue;
-    
-    function __get()
-    {
-      return __element.style.getPropertyValue(__keyProper);
-    }
-    
-    function __set(v)
-    {
-      console.log('set_inline')
-      if(__descriptor.writable)
+      else
       {
-        var __event = init.event(__key);
-        __event.oldValue = __oldValue = __descriptor.value;
-        __event.stopped = __element.__stopped__;
-        __event.value = v;
-        
-        if(__element.dispatchEvent(__event))
-        {
-          __element.style[(typeof v === 'string' && v.length === 0 ? '__removeProperty__' : '__setProperty__')](__keyProper,v);
+        /* add to event object for viewing */
+        listenerEventIntersect(this,key,func,true);
+      }
 
-          if(!__element.__stopped__)
-          {
-            var __event_update = init.event(__key,true);
-            __event_update.oldValue = __oldValue;
-            __event_update.value = v;
-            
-            __element.dispatchEvent(__event_update);
-          }
-        }
-        __element.__stopped__ = undefined;
-      }
-    }
-    
-    return {
-      get:__get,
-      set:__set,
-      enumerable:__descriptor.enumerable,
-      configurable:false
-    }
-  }
-  
-  function descriptorCSSText(descriptor,key)
-  {
-    var __descriptor = descriptor,
-        __key = key,
-        __descGet = __descriptor.get,
-        __descSet = __descriptor.set,
-        __oldValue;
-    
-    function __set(v)
-    {
-      __oldValue = __descGet.call(this);
-      
-      var __cssRules = getCSSTextChanges(__oldValue,v);
-      for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+      if(__extensions.stop === undefined)
       {
-        key = keys[x];
-        this.style[key] = __cssRules[key];
+        _updateStandard(this,'removeEventListener',undefined,undefined,__extensions,__extensions.stop,arguments);
       }
     }
-    
-    return {
-      get:__descGet,
-      set:__set,
-      enumerable:__descriptor.enumerate,
-      configurable:true
-    };
-  }
-  
-  function descriptorCSSSetProperty(key, value, priority)
-  {
-    console.log('setting');
-    var __inlineKey = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
-    this[__inlineKey] = value + (priority ? '!'+priority : '');
+    __extensions.stop = undefined;
     return undefined;
   }
   
-  function descriptorCSSRemoveProperty(key)
-  {
-    var __inlineKey = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
-    this[__inlineKey] = '';
-    return undefined;
-  }
-  
-  function getCSSTextChanges(oldValue,value)
-  {
-    var __cssRules = value.split(';').reduce(function(style,v,x){
-          var split = v.split(':'),
-          prop = split[0].replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit'),
-          value = split[1]; 
-          style[prop] = value;
-          
-          return style;
-        },{});
-    
-    for(var x=0,oldSplit=oldValue.split(';'),len=oldSplit.length,split,prop,value;x<len;x++)
-    {
-      split = oldSplit[x].split(':');
-      prop = split[0].replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
-      if(__cssRules[prop] === undefined) __cssRules[prop] = '';
-    }
-    
-    return __cssRules;
-  }
-  
-  /* must be done this way due to keyCodes not being cross platoform, may be looked into later */
-  function runInputEvents(e)
-  {
-    if(e.defaultPrevented) return false;
-    
-    var __target = e.target,
-        __isRadio = (['checkbox','radio'].indexOf(__target.type) !== -1),
-        __oldValue = __target.__prevalue__,
-        __oldChecked = __target.__prechecked__,
-        __checked = __target.checked,
-        __value = (__target.value);
-
-    var __event_value = init.event('value');
-        __event_value.oldValue = __oldValue;
-        __event_value.stopped = __target.__stopped__;
-        __event_value.value = __value;
-
-    if(__target.dispatchEvent(__event_value))
-    {
-      if(__isRadio)
-      {
-        var __event_checked = init.event('checked');
-            __event_checked.oldValue = __oldChecked;
-            __event_checked.stopped = __target.__stopped__;
-            __event_checked.value = __checked;
-        if(__target.dispatchEvent(__event_checked))
-        {
-            if(!__target.__stopped__)
-            {
-                var __event_value_update = init.event('value',true);
-                    __event_value_update.oldValue = __target.__prevalue__;
-                    __event_value_update.value = __target.value;
-                    __target.dispatchEvent(__event_value_update);
-
-                var __event_checked_update = init.event('checked',true);
-                    __event_checked_update.oldValue = __target.__prevalue__;
-                    __event_checked_update.value = __target.checked;
-                    __target.dispatchEvent(__event_checked_update);
-            }
-        }
-        else
-        {
-          __target.__checkeddescriptor__.set(__oldChecked);
-          __target.__stopped__ = undefined;
-          return false;
-        }
-      }
-      else
-      {
-          if(!__target.__stopped__)
-          {
-            var __event_value_update = init.event('value',true);
-                __event_value_update.oldValue = __target.__prevalue__;
-                __event_value_update.value = __target.value;
-                __target.dispatchEvent(__event_value_update);
-          }
-      }
-    }
-    else
-    {
-      if(__isRadio) 
-      {
-        __target.__checkeddescriptor__.set.call(__target,__oldChecked);
-      }
-      else
-      {
-        __target.__valuedescriptor__.set.call(__target,__oldValue);
-      }
-      __target.__stopped__ = undefined;
-      return false;
-    }
-    __target.__stopped__ = undefined;
-    return true;
-  }
-  
-  function inputListener(e)
-  { 
-    /* if we are holding the key we should act like a keyup event happened */
-    if(this.isHolding)
-    {
-      if(!runInputEvents.call(this,e))
-      {
-        e.preventDefault();
-        return false;
-      }
-    }
-    this.isHolding = true;
-    
-    if(['checked','radio'].indexOf(this.type) === -1)
-    {
-      this.__prevalue__ = this.value;
-      /* value gets set prior to this running so we can prevent it without user seeing the value, checked requires click event to do the same */
-      setTimeout(function(){
-        runInputEvents.call(e.target,e);
-      },0);
-    }
-    else
-    {
-      this.__prevalue__ = this.value;
-      this.__prechecked__ = this.checked;
-    }
-  }
-  
-  function inputUpListener(e)
-  {
-    if(['checked','radio'].indexOf(this.type) !== -1)
-    {
-      runInputEvents.call(this,e);
-    }
-    this.isHolding = false;
-  }
-  
-  function selectListener(e)
-  {
-    var __target = e.target,
-        __oldValue = __target.__prevalue__,
-        __oldIndex = __target.__preindex__,
-        __value = __target.value;
-    
-    var __event_value = init.event('value');
-        __event_value.oldValue = __target.__prevalue__;
-        __event_value.stopped = __target.__stopped__;
-        __event_value.value = __target.value;
-    
-    var __event_index = init.event('selectedIndex');
-        __event_index.oldValue = __target.__preindex__;
-        __event_index.stopped = __target.__stopped__;
-        __event_index.value = __target.selectedIndex;
-    
-    if(__target.dispatchEvent(__event_value) && __target.dispatchEvent(__event_index))
-    {
-      if(!__target.__stopped__)
-      {
-        var __event_value_update = init.event('value',true);
-        __event_value_update.oldValue = __oldValue;
-        __event_value_update.value = __target.value;
-    
-        var __event_index_update = init.event('selectedIndex',true);
-        __event_index_update.oldValue = __oldIndex;
-        __event_index_update.value = __target.selectedIndex;
-        
-        __target.dispatchEvent(__event_value_update);
-        __target.dispatchEvent(__event_index_update);
-      }
-    }
-    else
-    {
-      __target.__valuedescriptor__.set.call(__target,__oldValue);
-      __target.__stopped__ = undefined;
-      return false;
-    }
-    return true;
-  }
-  
-  function applyTextChanges()
-  {
-    if(this.__inputlistener__ === undefined)
-    {
-      Object.defineProperty(this,'__inputlistener__',descriptorHidden(inputListener));
-      Object.defineProperty(this,'__inputupdatelistener__',descriptorHidden(inputUpListener));
-      
-      this.isHolding = false;
-      
-      /* need to support html5 input types */
-      
-      if(['checkbox','radio'].indexOf(this.type) !== -1)
-      {
-        this.addEventListener('mousedown',this.__inputlistener__,false);
-        this.addEventListener('click',this.__inputupdatelistener__,false);
-        Object.defineProperty(this,'__prevalue__',descriptorHidden(this.value));
-        Object.defineProperty(this,'__prechecked__',descriptorHidden(this.checked.toString()));
-      }
-      else
-      {
-        this.addEventListener('keydown',this.__inputlistener__,false);
-        this.addEventListener('keyup',this.__inputupdatelistener__,false);
-        Object.defineProperty(this,'__prevalue__',descriptorHidden(this.value));
-      }
-    }
-  }
-  
-  function applySelectChanges()
-  {
-    if(this.__selectlistener__ === undefined)
-    {
-      Object.defineProperty(this,'__selectlistener__',descriptorHidden(selectListener));
-
-      Object.defineProperty(this,'__selectfocuslistener__',descriptorHidden(function(){
-        this.__prevalue__ = this.value;
-        this.__preindex__ = this.selectedIndex;
-      }));
-
-      this.addEventListener('focus',this.__selectfocuslistener__);
-      this.addEventListener('change',this.__selectlistener__);
-      Object.defineProperty(this,'__prevalue__',descriptorHidden(this.value));
-      Object.defineProperty(this,'__preindex__',descriptorHidden(this.selectedIndex));
-    }
-  }
+  /* note, need to add into account bubbled listeners on nodes that are post inserted into the dom */
+  /* .__pikantnyExtensions__.attrListeners, .__pikantnyExtensions__.parentAttrListeners */
   
   function processEvent(key,func)
   {
     /* handle inline css change listeners, attribute, and cssText, setProperty */
-    var __cssKey = key.replace(/([A-Z])/g, "-$1").replace('webkit','-webkit').toLowerCase(),
-        __cssInlineKey = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();}).replace('-webkit','webkit');
-    
-    if(__CSSInlineList.indexOf(__cssInlineKey) !== -1)
+    var __element = this,
+        __truekey = key.replace('update','');
+        
+    if(__CSSList__.indexOf(__truekey) !== -1)
     {
-      if(this.__styleList__ === undefined) Object.defineProperty(this,'__styleList__',descriptorHidden([]));
+      var __cssKey = getStyleKey(__truekey),
+          __cssInlineKey = getInlineKey(__truekey),
+          __hasUpdate = (key.indexOf('update') !== -1 ? 'update' : ''),
+          
+          /* in case both are the same */
+          __keys = (__CSSList__.indexOf(__cssKey) !== -1 && (__cssInlineKey !== __cssKey) ? [__cssKey+__hasUpdate,__cssInlineKey+__hasUpdate] : __cssInlineKey+__hasUpdate);
       
-      if(this.__styleList__.indexOf(__cssInlineKey) === -1)
-      {
-        Object.defineProperty(this.style,__cssInlineKey,descriptorInlineStyle(Object.getOwnPropertyDescriptor(this.style,__cssInlineKey),this,__cssInlineKey,__cssKey));
-        this.__styleList__.push(__cssInlineKey);
-      }
       
+      processStyleEvent(__element,__cssInlineKey,__cssKey);
+      attachAttrEvent(__element,__keys,func);
       return __cssInlineKey;
     }
     
@@ -760,17 +1216,17 @@ window.pikantny = (function(){
       /* if its an input and we are looking for checked, values, and selectedIndex, easy listener addons */
       if(['input','textarea'].indexOf(this.nodeName.toLowerCase()) !== -1)
       {
-        applyTextChanges.call(this);
+        applyTextChanges(this);
       }
       else if(['select'].indexOf(this.nodeName.toLowerCase()) !== -1)
       {
-        applySelectChanges.call(this);
+        applySelectChanges(this);
       }
       else if(this.childNodes.length !== 0)
       {
-        var __inputs = this.querySelectorAll('input'),
-            __textareas = this.querySelectorAll('textarea'),
-            __select = this.querySelectorAll('select');
+        var __inputs = __querySelectorAll.call(this,'input'),
+            __textareas = __querySelectorAll.call(this,'textarea'),
+            __select = __querySelectorAll.call(this,'select');
         
         function loop(els,isSelect)
         {
@@ -778,11 +1234,11 @@ window.pikantny = (function(){
           {
             if(isSelect)
             {
-              applySelectChanges.call(els[x]);
+              applySelectChanges(els[x]);
             }
             else
             {
-              applyTextChanges.call(els[x]);
+              applyTextChanges(els[x]);
             }
           }
         }
@@ -807,92 +1263,103 @@ window.pikantny = (function(){
       }
     }
     
-    return key;
+    attachAttrEvent(__element,key,func);
   }
   
+  /* only removes non bubbled, so we then just must remove none and ignore if has bubbled */
   function processEventRemoval(key,func)
   {
-    if(['checked','value'].indexOf(key) !== -1)
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
+    
+    if(__CSSList__.indexOf(key) !== -1)
     {
-      /* run up the tree checking for events */
-      var __isRemovable = true,
-          __parent = this.parentElement;
-      while(__parent !== document.documentElement && __isRemovable)
-      {
-        __isRemovable = !(__parent.events['value'] !== undefined && __parent.events['value'].length !== 0);
-        __parent = __parent.parentElement;
-      }
-      
-      if(__isRemovable)
+      var __cssKey = getStyleKey(key),
+          __cssInlineKey = getInlineKey(key);
+      removeAttrEvent(__element,[__cssKey,__cssInlineKey],func);
+      return __cssInlineKey;
+    }
+    
+    if(['checked','value','selectedIndex'].indexOf(key) !== -1)
+    {
+      /* run up the tree checking for events, should be run down the tree? */
+      var __isBubbleRemovable = (__extensions.parentAttrListeners[key] === undefined || __extensions.parentAttrListeners[key].length < 2);
+
+      if(!!__extensions.attrListeners[key] && __extensions.attrListeners[key].length < 2)
       {
         if(['input','textarea'].indexOf(this.nodeName.toLowerCase()) !== -1)
         {
           if(['checkbox','radio'].indexOf(this.type) !== -1)
           {
-            __parent = this.parentElement;
-            while(__parent !== document.documentElement && __isRemovable)
+            if(__isBubbleRemovable)
             {
-              __isRemovable = !(__parent.events['checked'] !== undefined && __parent.events['checked'].length !== 0);
-              __parent = __parent.parentElement;
-            }
-            
-            if(__isRemovable)
-            {
-              this.removeEventListener('mousedown',this.__inputlistener__);
-              this.removeEventListener('click',this.__inputupdatelistener__);
+              this.removeEventListener('mousedown',inputListener);
+              this.removeEventListener('click',inputUpListener);
             }
           }
           else
           {
-            this.removeEventListener('keydown',this.__inputlistener__);
-            this.removeEventListener('keyup',this.__inputupdatelistener__);
+            if(__isBubbleRemovable)
+            {
+              this.removeEventListener('keydown',inputListener);
+              this.removeEventListener('keyup',inputUpListener);
+            }
           }
         }
         else if(['select'].indexOf(this.nodeName.toLowerCase()) !== -1)
         {
-          this.removeEventListener('focus',this.__selectfocuslistener__);
-          this.removeEventListener('change',this.__selectlistener__);
+          if(__isBubbleRemovable)
+          {
+            this.removeEventListener('focus',selectFocusListener);
+            this.removeEventListener('change',selectListener);
+          }
         }
         /* need to check if any listeners exist in the  lower tree... oh boy... */
         else
         {
-          var __inputs = this.querySelectorAll('input'),
-              __textareas = this.querySelectorAll('textarea'),
-              __select = this.querySelectorAll('select'),
+          var __inputs = __querySelectorAll.call(this,'input'),
+              __textareas = __querySelectorAll.call(this,'textarea'),
+              __select = __querySelectorAll.call(this,'select'),
               __element = this;
           
-          function loop(els,type,isSelect)
+          /* need to check if listeners are on attrListeners and not to remove if so */
+          function loop(els,type)
           {
-            for(var x=0,len=els.length,parent,isRemovable = true,isRadio;x<len;x++)
+            for(var x=0,len=els.length,isBubbleRemovable,isRadio,el,ext;x<len;x++)
             {
-              parent = els[x];
-              isRadio = (['checkbox','radio'].indexOf(els[x].type) !== -1);
-              while(parent !== __element && isRemovable)
+              el = els[x];
+              ext = (el.__pikantnyExtensions__ || attachLocalBinders(el));
+              isRadio = (['checkbox','radio'].indexOf(el.type) !== -1);
+              isBubbleRemovable = (ext.parentAttrListeners[key] === undefined || ext.parentAttrListeners[key].length < 2)
+              
+              if(!!ext.attrListeners[key] && ext.attrListeners[key].length < 2)
               {
-                isRemovable = !(parent.events[type] !== undefined && parent.events[type].length !== 0);
-                if(isRadio) isRemovable = !(parent.events[(type === 'value' ? 'checked' : 'value')] !== undefined && parent.events[(type === 'value' ? 'checked' : 'value')].length !== 0);
-                if(isSelect) isRemovable = !(parent.events[(type === 'value' ? 'selectedIndex' : 'value')] !== undefined && parent.events[(type === 'value' ? 'selectedIndex' : 'value')].length !== 0);
-                parent = parent.parentElement;
-              }
-              if(isRemovable)
-              {
-                if(['input','textarea'].indexOf(els[x].nodeName.toLowerCase()) !== -1)
+                if(['input','textarea'].indexOf(el.nodeName.toLowerCase()) !== -1)
                 {
                   if(isRadio)
                   {
-                    els[x].removeEventListener('mousedown',els[x].__inputlistener__);
-                    els[x].removeEventListener('mouseup',els[x].__inputupdatelistener__);
+                    if(isBubbleRemovable)
+                    {
+                      el.removeEventListener('mousedown',inputListener);
+                      el.removeEventListener('mouseup',inputUpListener);
+                    }
                   }
                   else
                   {
-                    els[x].removeEventListener('keydown',els[x].__inputlistener__);
-                    els[x].removeEventListener('keyup',els[x].__inputupdatelistener__);
+                    if(isBubbleRemovable)
+                    {
+                      el.removeEventListener('keydown',inputListener);
+                      el.removeEventListener('keyup',inputUpListener);
+                    }
                   }
                 }
                 else
                 {
-                  els[x].removeEventListener('focus',els[x].__selectfocuslistener__);
-                  els[x].removeEventListener('change',els[x].__selectlistener__);
+                  if(isBubbleRemovable)
+                  {
+                    el.removeEventListener('focus',selectFocusListener);
+                    el.removeEventListener('change',selectListener);
+                  }
                 }
               }
             }
@@ -918,27 +1385,658 @@ window.pikantny = (function(){
         }
       }
     }
+    removeAttrEvent(__element,key,func);
     return key;
   }
   
-  function init(obj,local)
+  /* controls keeping track of all events on an element, events are viewable via pikantny.events(element) */
+  function listenerEventIntersect(el,key,value,remove,oldValue)
+  {
+    /* get extension and all associated events */
+    var __extensions = (el.__pikantnyExtensions__ || attachLocalBinders(el)),
+        __events = __extensions.events,
+        __local = __events[key],
+        __children = __querySelectorAll.call(el,'*');
+    
+    /* create associated events array if it does not exist */
+    if(__local === undefined) __local = __events[key] = [];
+    
+    /* if we are updating or removing an event we must remove the old one */
+    if(oldValue && __local.indexOf(oldValue) !== -1 || !!remove)
+    {
+      __local.splice(__local.indexOf((oldValue || value)),1);
+      
+      for(var x=0,len=__children.length,child,ext,events,local;x<len;x++)
+      {
+        child = __children[x];
+        ext = (child.__pikantnyExtensions__ || attachLocalBinders(child));
+        events = ext.bubbledEvents;
+        local = events[key];
+        
+        local.splice(local.indexOf((oldValue || value)),1);
+      }
+    }
+    
+    /* if we are not just removing an event add it to the proper array */
+    if(!remove)
+    {
+      __events[key][__local.length] = value;
+      
+      for(var x=0,len=__children.length,child,ext,events,local;x<len;x++)
+      {
+        child = __children[x];
+        ext = (child.__pikantnyExtensions__ || attachLocalBinders(child));
+        events = ext.bubbledEvents;
+        local = events[key];
+        
+        /* create associated events array if it does not exist */
+        if(local === undefined) local = events[key] = [];
+        
+        events[key][local.length] = value;
+      }
+    }
+  }
+  
+  /* ENDREGION */
+  
+  /* STYLE DESCRIPTORS AND OVERWRITES */
+  /* REGION */
+  
+  /* needs rework */
+  /* when a style listener is added to an element we convert the `style` object key to an observable */
+  function descriptorInlineStyle(element,key)
+  {
+    /* closured descriptor, used methods and local var's for increased perf */
+    var __proto = element.style,
+        __removeProperty = __proto.removeProperty,
+        __setProperty = __proto.setProperty,
+        __keyInline = getInlineKey(key),
+        __keyStyle = getStyleKey(key),
+        __element = element,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __extensions = {},
+        __StandardExists = (__CSSList__.indexOf(__keyStyle) !== -1 && __keyInline !== __keyStyle),
+        __oldValue = __proto[__keyInline],
+        __value = __proto[__keyInline];
+    
+    /* getter */
+    function get()
+    {
+      return __value;
+    }
+    
+    /* setter */
+    function set(v)
+    {
+      __oldValue = __value;
+      __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
+
+      /* run pre value listeners for both inline key and css style key */
+      if(__set(__element,__keyInline,v,__oldValue,__extensions,__extensions.stop) === true)
+      {
+        if(__StandardExists === false || __set(__element,__keyStyle,v,__oldValue,__extensions,__extensions.stop) === true)
+        {
+          __value = v;
+          if(typeof v === 'string' && v.length === 0)
+          {
+            /* inline style helps dif whether the setProperty method was ran or the inline style was changed */
+            __extensions.inlinestyle = true;
+            __removeProperty.call(__proto,__keyStyle);
+          }
+          else
+          {
+            /* inline style helps dif whether the setProperty method was ran or the inline style was changed */
+            __extensions.inlinestyle = true;
+            __setProperty.call(__proto,__keyStyle,v);
+          }
+
+
+          if(__extensions.stop === undefined)
+          {
+            __update(__element,__keyInline,v,__oldValue,__extensions);
+            if(__StandardExists === true) __update(__element,__keyStyle,v,__oldValue,__extensions);
+          }
+        }
+      }
+      __extensions.stop = undefined;
+    }
+    
+    return {
+      get:get,
+      set:set,
+      enumerable:true,
+      configurable:true
+    }
+  }
+  
+  /* needs rework */
+  /* if the cssText property on the style Object is set we parse it */
+  function descriptorCSSText(element)
+  {
+    var __proto = element.style,
+        __descriptor = __cssTextDescriptor,
+        __element = element,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __descGet = __descriptor.get,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __oldValue = __proto.csssText,
+        __value = __proto.csssText,
+        __cssRules;
+    
+    function set(v)
+    {
+      __oldValue = __descGet.call(this);
+      if(__set(__element,'cssText',v,__oldValue,__extensions,__extensions.stop) === true)
+      {
+        __cssRules = getCSSTextChanges(__oldValue,v);
+        for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+        {
+          key = keys[x];
+          this.style[key] = __cssRules[key];
+        }
+        
+        if(__extensions.stop === undefined)
+        {
+          __update(__element,'cssText',v,__oldValue,__extensions);
+        }
+      }
+      __extensions.stop = undefined;
+    }
+    
+    return {
+      get:__descGet,
+      set:set,
+      enumerable:true,
+      configurable:false
+    };
+  }
+  
+  /* in the case that setProperty method on the style Object is directly called, this is main method ran when any style is set */
+  function descriptorCSSSetProperty(element)
+  {
+    var __proto = element.style,
+        __element = element,
+        __descSet = __proto.setProperty,
+        __cssList = __CSSList__,
+        __getInlineKey = getInlineKey,
+        __getStyleKey = getStyleKey,
+        __keyInline,
+        __keyStyle,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __standardExists,
+        __action = undefined;
+    
+    function set(key,v,priority)
+    {
+      if(typeof v === 'string' && v.length === 0) return (__proto.removeProperty(key));
+      
+      if(!__extensions.inlinestyle)
+      {
+        __keyInline = __getInlineKey(key);
+        __keyStyle = __getStyleKey(key);
+        __standardExists = (__cssList.indexOf(__keyStyle) !== -1 && __keyInline !== __keyStyle);
+        
+        if(__set(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+        {
+          if(__standardExists === false || __set(__element,__keyStyle,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+          {
+            __action = __descSet.apply(this,arguments);
+            if(__extensions.stop === undefined) 
+            {
+              __update(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments,__action);
+              if(__StandardExists === true) __update(__element,__keyStyle,undefined,undefined,__extensions,__extensions.stop,arguments,__action);
+            }
+          }
+        }
+        __extensions.stop = undefined;
+      }
+      else
+      {
+        __extensions.inlinestyle = undefined;
+        return __descSet.apply(this,arguments);
+      }
+    }
+    
+    return {
+      value:set,
+      writable:true,
+      enumerable:true,
+      configurable:false
+    };
+  }
+  
+  /* needs rework */
+  /* in the case that removeProperty method on the style Object is directly called */
+  function descriptorCSSRemoveProperty(element)
+  {
+    var __proto = element.style,
+        __element = element,
+        __descSet = __proto.removeProperty,
+        __cssList = __CSSList__,
+        __getInlineKey = getInlineKey,
+        __getStyleKey = getStyleKey,
+        __keyInline,
+        __keyStyle,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __standardExists,
+        __action = undefined;
+    
+    function set(key)
+    {
+      if(!__extensions.inlinestyle)
+      {
+        __keyInline = __getInlineKey(key);
+        __keyStyle = __getStyleKey(key);
+        __standardExists = (__cssList.indexOf(__keyStyle) !== -1 && __keyInline !== __keyStyle);
+        
+        if(__set(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+        {
+          if(__standardExists === false || __set(__element,__keyStyle,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+          {
+            __action = __descSet.apply(this,arguments);
+            if(__extensions.stop === undefined) 
+            {
+              __update(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments,__action);
+              if(__standardExists) __update(__element,__keyStyle,undefined,undefined,__extensions,__extensions.stop,arguments,__action);
+            }
+          }
+        }
+        __extensions.stop = undefined;
+      }
+      else
+      {
+        __extensions.inlinestyle = undefined;
+        return __descSet.apply(this,arguments);
+      }
+    }
+    
+    return {
+      value:set,
+      writable:true,
+      enumerable:true,
+      configurable:false
+    };
+  }
+  
+  /* formats a standard css key into an inline key */
+  function getInlineKey(key)
+  {
+    var _key = key.replace(/\-(.)/,function(dash,char){return char.toUpperCase();});
+    if(_key.indexOf('-webkit') === 0) _key = _key.replace('-webkit','webkit');
+    if(_key.indexOf('-moz') === 0) _key = _key.replace('-moz','moz');
+    if(_key.indexOf('-ms') === 0) _key = _key.replace('-ms','ms');
+    
+    return _key;
+  }
+  
+  /* formats a inline key into a standard css key */
+  function getStyleKey(key)
+  {
+    var _key = key.replace(/([A-Z])/g, "-$1");
+    if(_key.indexOf('webkit') === 0) _key = _key.replace('webkit','-webkit');
+    if(_key.indexOf('moz') === 0) _key = _key.replace('moz','-moz');
+    if(_key.indexOf('ms') === 0) _key = _key.replace('ms','-ms');
+    
+    return _key.toLowerCase();
+  }
+  
+  /* converts an css text style string into an object */
+  function getCSSTextChanges(oldValue,value)
+  { 
+    /* split string rules using `;` and `:` into a key:value pair object */
+    var __cssRules = value.split(';').reduce(function(style,v,x){
+          var split = v.split(':'),
+          prop = getInlineKey(split[0]),
+          value = split[1]; 
+          style[prop] = value;
+          
+          return style;
+        },{});
+    
+    /* loop over and check oldValue for ones that were removed and set them to empty values to be removed properly */
+    for(var x=0,oldSplit=oldValue.split(';'),len=oldSplit.length,split,prop,value;x<len;x++)
+    {
+      split = oldSplit[x].split(':');
+      prop = getInlineKey(split[0]);
+      if(__cssRules[prop] === undefined) __cssRules[prop] = '';
+    }
+    
+    return __cssRules;
+  }
+  
+  /* due to bug in chrome 50+ we add the object also to style so we can see if the GC has renewed the style object */
+  function attachStyleListeners(element,key,keyProper)
+  {
+    var __element = element,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __elementList = __element.style.__styleList__,
+        __list = __extensions.__styleList__;
+    
+    if(__list === undefined || __elementList === undefined) 
+    {
+      __list = __extensions.__styleList__ = [];
+      __elementList = __element.style.__styleList__ = [];
+      
+      Object.defineProperty(__element.style,'setProperty',descriptorCSSSetProperty(__element));
+      Object.defineProperty(__element.style,'removeProperty',descriptorCSSRemoveProperty(__element));
+      Object.defineProperty(__element.style,'cssText',descriptorCSSText(__element));
+    }
+    
+    if(__list.indexOf(key) === -1)
+    {
+      /* set local style listener first */
+      Object.defineProperty(__element.style,key,descriptorInlineStyle(__element,key,keyProper));
+      __extensions.__styleList__[__list.length] = key;
+      __element.style.__styleList__[__elementList.length] = key;
+      return true;
+    }
+    
+    if(__elementList.indexOf(key) === -1 && __list.indexOf(key) !== -1)
+    {
+      /* set local style listener first */
+      Object.defineProperty(__element.style,key,descriptorInlineStyle(__element,key,keyProper));
+      __element.style.__styleList__[__elementList.length] = key;
+    }
+    return false;
+  }
+  
+  function processStyleEvent(element,key,keyProper)
+  {
+    if(attachStyleListeners(element,key,keyProper) === true)
+    {
+      /* this allows for bubbling to take effect */
+      var __children = __querySelectorAll.call(element,'*');
+      
+      for(var x=0,len=__children.length;x<len;x++)
+      {
+        attachStyleListeners(__children[x],key,keyProper);
+      }
+    }
+  }
+  
+  /* ENDREGION */
+  
+  /* INPUT DESCRIPTORS AND OVERWRITES */
+  /* REGION */
+  
+  /* run from events, need seperate for value and checked being set */
+  function runInputEvents(e)
+  {
+    if(e.defaultPrevented) return false;
+    
+    var __target = e.target,
+        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target)),
+        __set = _setStandard,
+        __update = _updateStandard,
+        __isRadio = (['checkbox','radio'].indexOf(__target.type) !== -1),
+        __oldChecked = __extensions.__prechecked__,
+        __oldValue = (__isRadio ? __oldChecked : __extensions.__prevalue__),
+        __checked = __target.checked,
+        __value = (__isRadio ? __checked : __target.value);
+
+    if(__set(__target,'value',__value,__oldValue,__extensions,__extensions.stop) === true)
+    {
+      if(__isRadio)
+      {
+        if(__set(__target,'checked',__checked,__oldChecked,__extensions,__extensions.stop) === true)
+        {
+          if(!__target.__stopped__)
+          {
+            __update(__target,'value',__value,__oldValue,__extensions);
+            __update(__target,'checked',__checked,__oldChecked,__extensions);
+          }
+        }
+        else
+        {
+          __checkedInputDescriptor.set.call(__target,__oldChecked);
+          __extensions.stop = undefined;
+          return false;
+        }
+      }
+      else
+      {
+          if(!__target.__stopped__)
+          {
+            __update(__target,'value',__value,__oldValue,__extensions);
+          }
+      }
+    }
+    else
+    {
+      if(__isRadio) 
+      {
+        __checkedInputDescriptor.set.call(__target,__oldChecked);
+      }
+      else
+      {
+        if(__target.nodeName === 'INPUT') __valueInputDescriptor.set.call(__target,__oldValue);
+        if(__target.nodeName === 'TEXTAREA') __valueTextAreaDescriptor.set.call(__target,__oldValue);
+      }
+      __extensions.stop = undefined;
+      return false;
+    }
+    __extensions.stop = undefined;
+    return true;
+  }
+  
+  function inputListener(e)
+  { 
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
+    
+    /* if we are holding the key we should act like a keyup event happened */
+    if(__extensions.isPressed)
+    {
+      if(runInputEvents.call(this,e) === false)
+      {
+        e.preventDefault();
+        return false;
+      }
+    }
+    __extensions.isPressed = true;
+    
+    if(['checkbox','radio'].indexOf(this.type) === -1)
+    {
+      __extensions.__prevalue__ = this.value;
+      
+      /* value gets set prior to this running so we can prevent it without user seeing the value, checked requires click event to do the same */
+      if(runInputEvents.call(e.target,e) === false)
+      {
+        e.preventDefault();
+        return false;
+      }
+    }
+    else
+    {
+      __extensions.__prevalue__ = this.value;
+      __extensions.__prechecked__ = this.checked;
+      
+      if(e.type === 'keydown')
+      {
+        if(runInputEvents.call(this,e) === false)
+        {
+          e.preventDefault();
+          return false;
+        }
+      }
+    }
+  }
+  
+  function inputKeyListener(e)
+  {
+    if((e.keyCode || e.which) === 32) return inputListener.call(this,e);
+    return true;
+  }
+  
+  function inputUpListener(e)
+  {
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
+    
+    /* in the case 'enter' or 'space' is pressed on a radio input */
+    if(['checkbox','radio'].indexOf(this.type) !== -1 && e.type !== 'keydown') runInputEvents.call(this,e);
+    
+    __extensions.isPressed = false;
+  }
+  
+  function inputKeyUpListener(e)
+  {
+    if((e.keyCode || e.which) === 32) return inputUpListener.call(this,e);
+    return true;
+  }
+  
+  function selectListener(e)
+  {
+    var __target = e.target,
+        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target)),
+        __set = _setStandard,
+        __update = _updateStandard,
+        __oldValue = __extensions.__prevalue__,
+        __oldIndex = __extensions.__preindex__,
+        __index = __target.selectedIndex,
+        __value = __target.value;
+    
+    if(__set(__target,'value',__value,__oldValue,__extensions) === true)
+    {
+      if(__set(__target,'selectedIndex',__index,__oldIndex,__extensions) === true)
+      {
+        if(!__extensions.__stopped__)
+        {
+          __update(__target,'value',__value,__oldValue,__extensions);
+          __update(__target,'selectedIndex',__index,__oldIndex,__extensions);
+        }
+      }
+    }
+    else
+    {
+      __valueSelectDescriptor.set.call(__target,__oldValue);
+      __extensions.__stopped__ = undefined;
+      return false;
+    }
+    __extensions.__stopped__ = undefined;
+    return true;
+  }
+  
+  function selectFocusListener(e)
+  {
+    var __target = e.target,
+        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target));
+    
+    __extensions.__prevalue__ = this.value;
+    __extensions.__preindex__ = this.selectedIndex;
+  }
+  
+  function applyTextChanges(element)
+  {
+    var __target = element,
+        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target)),
+        __events = __extensions.events;
+    
+    if(__extensions.inputExtended === undefined)
+    {
+      __extensions.inputExtended = true;
+      __extensions.isPressed = false;
+      
+      /* need to support html5 input types */
+      
+      if(['checkbox','radio'].indexOf(__target.type) !== -1)
+      {
+        __target.addEventListener('mousedown',inputListener,false);
+        __target.addEventListener('keydown',inputKeyListener,false);
+        __target.addEventListener('click',inputUpListener,false);
+        __target.addEventListener('keyup',inputKeyUpListener,false);
+        __extensions.__prevalue__ = __target.value;
+        __extensions.__prechecked__ = __target.checked.toString();
+      }
+      else
+      {
+        __target.addEventListener('keydown',inputListener,false);
+        __target.addEventListener('keyup',inputUpListener,false);
+        __extensions.__prevalue__ = __target.value;
+      }
+      return true;
+    }
+    return false;
+  }
+  
+  function applySelectChanges(element)
+  {
+    var __target = element,
+        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target)),
+        __events = __extensions.events;
+    
+    if(__extensions.inputExtended === undefined)
+    {
+      __extensions.inputExtended = true;
+      __target.addEventListener('focus',selectFocusListener,false);
+      __target.addEventListener('change',selectListener,false);
+      __extensions.__prevalue__ = __target.value;
+      __extensions.__preindex__ = __target.selectedIndex;
+      return true;
+    }
+    return false;
+  }
+  
+  function attachInputListeners(element)
+  {
+    return (['INPUT','TEXTAREA'].indexOf(element.nodeName) !== -1 ? applyTextChanges(element) : (element.nodeName === 'SELECT' ? applySelectChanges(element) : false));
+  }
+  
+  /* ENDREGION */
+  
+  /* MAIN PUBLIC METHODS */
+  /* REGION */
+  
+  function init(title,obj,local)
   {
     if(local === undefined) local = window;
-    if(local.__KeyList__ === undefined) Object.defineProperty(local,'__KeyList__',descriptorHidden([]));
-    for(var x=0,keys=Object.getOwnPropertyNames(obj),len=keys.length;x<len;x++) init.inject(obj,keys[x],local);
+    if(local.__pikantnyKeyList__ === undefined) Object.defineProperty(local,'__pikantnyKeyList__',descriptorHidden([]));
+    for(var x=0,keys=Object.getOwnPropertyNames(obj),len=keys.length;x<len;x++) init.inject(title,obj,keys[x],local);
     
     return init;
   }
-
-  init.inject = function(obj,key,local)
+  
+  init.inject = function(title,obj,key,local)
   {
-    if(local.__KeyList__.indexOf(key) !== -1 || __blocked__.indexOf(key) !== -1 || key.indexOf('__') === 0) return init;
+    if(local === undefined) local = window;
+    if(local.__pikantnyKeyList__ === undefined) Object.defineProperty(local,'__pikantnyKeyList__',descriptorHidden([]));
+    
+    var __extensions = local.__pikantnyKeyList__;
+    
+    if(__blocked__.indexOf(key) !== -1 || key.indexOf('__') === 0) return init;
+    
+    if(__extensions[key] !== undefined && __DoubleList__.indexOf(key) !== -1)
+    {
+      if(__Double__[key].indexOf(title) === -1 || __extensions[key][title] !== undefined) return init;
+    }
+    else if(__extensions[key] !== undefined)
+    {
+      return init;
+    }
     
     var __descriptor = Object.getOwnPropertyDescriptor(obj,key),
         __defined;
+    
     if(__descriptor.configurable)
     {
-      if(__descriptor.set !== undefined)
+      if(__TextPropertyList__.indexOf(key) !== -1)
+      {
+        if(__descriptor.set !== undefined)
+        {
+          __defined = !!Object.defineProperty(obj,key,descriptorStandard(__descriptor,key,'html'));
+        }
+        else if(typeof __descriptor.value === 'function')
+        {
+          __defined = !!Object.defineProperty(obj,key,descriptorFunction(__descriptor,key,'html'));
+        }
+      }
+      else if(__descriptor.set !== undefined)
       {
         __defined = !!Object.defineProperty(obj,key,descriptorStandard(__descriptor,key));
       }
@@ -954,125 +2052,116 @@ window.pikantny = (function(){
       /* define but add 'remove/addEventListener' on set, keep list of events and reorder on add */
       if(__defined)
       {
-          Object.defineProperty(HTMLElement.prototype,'on'+key,descriptorEvent(key));
-          Object.defineProperty(HTMLElement.prototype,'on'+key+'update',descriptorEvent(key,true));
+          var _desc = Object.getOwnPropertyDescriptor(HTMLElement.prototype,'on'+key),
+              _descUpdate = Object.getOwnPropertyDescriptor(HTMLElement.prototype,'on'+key+'update');
+        
+          if(!_desc) Object.defineProperty(HTMLElement.prototype,'on'+key,descriptorEvent(key));
+          if(!_descUpdate) Object.defineProperty(HTMLElement.prototype,'on'+key+'update',descriptorEvent(key,true));
       }
+      
+      if(__extensions[key] === undefined) __extensions[key] = {};
+      
+      __extensions[key][title] = __descriptor;
     }
-    local.__KeyList__.push(key);
     return init;
-  }
-  
-  init.event = function(key,update)
-  {
-    return new Event(key+(!!update ? 'update' : ''),{bubbles: true,cancelable: true});
   }
   
   init.observables = function(local)
   {
-    return (local || window).__KeyList__.slice();
+    return (local || window).__pikantnyKeyList__.slice();
   }
   
-  init.addEventListener = document.documentElement.addEventListener.bind(document.documentElement);
-  init.removeEventListener = document.documentElement.removeEventListener.bind(document.documentElement);
-  
-  /* handle event recording */
-  if(EventTarget.prototype.__addEventListener__ === undefined && EventTarget.prototype.__removeEventListener__ === undefined)
+  init.isObservable = function(key,local)
   {
-    Object.defineProperty(EventTarget.prototype,'__addEventListener__',descriptorHidden(EventTarget.prototype.addEventListener));
-    EventTarget.prototype.addEventListener = function(key,func)
+    return ((local || window).__pikantnyKeyList__[key] !== undefined);
+  }
+  
+  init.addEventListener = __addEventListener.bind(document.documentElement);
+  init.removeEventListener = __removeEventListener.bind(document.documentElement);
+  
+  init.getEventListeners = function(element)
+  {
+    var __extensions = (element.__pikantnyExtensions__ || attachLocalBinders(element)),
+        __attr = Object.keys(__extensions.attrListeners),
+        __attrUpdate = Object.keys(__extensions.attrUpdateListeners),
+        __domEvents = Object.keys(__extensions.events),
+        __events = {};
+    
+    /* loop standard attribute events */
+    for(var x=0,len=__attr.length;x<len;x++)
     {
-      key = processEvent.call(this,key,func);
-      if(this.events === undefined) this.events = {};
-      if(this.events[key] === undefined) this.events[key] = [];
-      if(this.events[key].indexOf(func) === -1) this.events[key].push(func);
-      return this.__addEventListener__.call(this,key,func);
+      __events[__attr[x]] = __extensions.attrListeners[__attr[x]].slice();
     }
-    Object.defineProperty(EventTarget.prototype,'__removeEventListener__',descriptorHidden(EventTarget.prototype.removeEventListener));
-    EventTarget.prototype.removeEventListener = function(key,func)
+    
+    /* loop update attribute events */
+    for(var x=0,len=__attrUpdate.length;x<len;x++)
     {
-      key = processEventRemoval.call(this,key,func);
-      if(this.events === undefined) this.events = {};
-      if(this.events[key] === undefined) this.events[key] = [];
-      this.events[key].splice(this.events[key].indexOf(func),1);
-      if(this.events[key].length === 0) this.events[key] = undefined;
-      return this.__removeEventListener__.call(this,key,func);
+      __events[__attrUpdate[x]+'update'] = __extensions.attrUpdateListeners[__attrUpdate[x]].slice();
     }
-  }
-  
-  /* handle ability to stop an update */
-  if(EventTarget.prototype.stop === undefined) EventTarget.prototype.stop = function(){ this.__stopped__ = true; return this;};
-  
-  /* handle propagation */
-  if(Event.prototype.stoppedImmediatePropagation === undefined)
-  {
-    Event.prototype.stoppedImmediatePropagation = false;
-    Object.defineProperty(Event.prototype,'__stopImmediatePropagation__',descriptorHidden(Event.prototype.stopImmediatePropagation));
-    Event.prototype.stopImmediatePropagation = function(){
-      this.stoppedImmediatePropagation = true;
-      this.stoppedPropagation = true;
-      return this.__stopImmediatePropagation__.call(this);
-    };
-  }
-
-  if(Event.prototype.stoppedPropagation === undefined)
-  {
-    Event.prototype.stoppedPropagation = false;
-    Object.defineProperty(Event.prototype,'__stopPropagation__',descriptorHidden(Event.prototype.stopPropagation));
-    Event.prototype.stopPropagation = function(){
-      this.stoppedPropagation = true;
-      return this.__stopPropagation__.call(this);
-    };
-  }
-  
-  if(Element.prototype.__setAttribute__ === undefined && Element.prototype.__removeAttribute__ === undefined)
-  {
-    Object.defineProperty(Element.prototype,'__setAttribute__',descriptorHidden(Element.prototype.setAttribute));
-    Element.prototype.setAttribute = descriptorSetAttribute;
-    Object.defineProperty(Element.prototype,'__removeAttribute__',descriptorHidden(Element.prototype.removeAttribute));
-    Element.prototype.removeAttribute = descriptorRemoveAttribute;
     
-    var __valDescriptor = Object.getOwnPropertyDescriptor(Attr.prototype,'value');
+    /* loop dom events */
+    for(var x=0,len=__domEvents.length;x<len;x++)
+    {
+      __events[__domEvents[x]] = __extensions.events[__domEvents[x]].slice();
+    }
     
-    if(__valDescriptor) Object.defineProperty(Attr.prototype,'value',descriptorAttribute(__valDescriptor,'value'));
-    Object.defineProperty(Node.prototype,'nodeValue',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'nodeValue'),'nodeValue'));
-    Object.defineProperty(Node.prototype,'textContent',descriptorAttribute(Object.getOwnPropertyDescriptor(Node.prototype,'textContent'),'textContent'));
+    return __events;
   }
   
-  /* handle special css changes */
-  if(CSSStyleDeclaration.prototype.__setProperty__ === undefined && CSSStyleDeclaration.prototype.__removeProperty__ === undefined)
+  init.getBubbledEventListeners = function(element)
   {
-    Object.defineProperty(CSSStyleDeclaration.prototype,'cssText',descriptorCSSText(Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype,'cssText'),'cssText'));
+    var __extensions = (element.__pikantnyExtensions__ || attachLocalBinders(element)),
+        __attr = Object.keys(__extensions.parentAttrListeners),
+        __attrUpdate = Object.keys(__extensions.parentAttrUpdateListeners),
+        __domEvents = Object.keys(__extensions.bubbledEvents),
+        __events = {};
     
-    Object.defineProperty(CSSStyleDeclaration.prototype,'__setProperty__',descriptorHidden(CSSStyleDeclaration.prototype.setProperty));
-    CSSStyleDeclaration.prototype.setProperty = descriptorCSSSetProperty;
+    /* loop bubbled standard attribute events */
+    for(var x=0,len=__attr.length;x<len;x++)
+    {
+      __events[__attr[x]] = __extensions.parentAttrListeners[__attr[x]].slice();
+    }
     
-    Object.defineProperty(CSSStyleDeclaration.prototype,'__removeProperty__',descriptorHidden(CSSStyleDeclaration.prototype.removeProperty));
-    CSSStyleDeclaration.prototype.removeProperty = descriptorCSSRemoveProperty;
+    /* loop bubbled update attribute events */
+    for(var x=0,len=__attrUpdate.length;x<len;x++)
+    {
+      __events[__attrUpdate[x]+'update'] = __extensions.parentAttrUpdateListeners[__attrUpdate[x]].slice();
+    }
+    
+    /* loop bubbled dom events */
+    for(var x=0,len=__domEvents.length;x<len;x++)
+    {
+      __events[__domEvents[x]] = __extensions.bubbledEvents[__domEvents[x]].slice();
+    }
+    
+    return __events;
   }
   
-  /* handle special case for select value descriptor */
-  if(HTMLSelectElement.prototype.__valuedescriptor__ === undefined)
-  {
-    Object.defineProperty(HTMLSelectElement.prototype,'__valuedescriptor__',descriptorHidden(Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')));
-  }
+  /* ENDREGION */
   
-  if(HTMLInputElement.prototype.__valuedescriptor__ === undefined)
-  {
-    Object.defineProperty(HTMLInputElement.prototype,'__valuedescriptor__',descriptorHidden(Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')));
-    Object.defineProperty(HTMLInputElement.prototype,'__checkeddescriptor__',descriptorHidden(Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked')));
-  }
+  /* CONSTRUCTOR */
+  /* REGION */
   
+  /* main loop for all dom prototypes */
   for(var x=0,len=__GlobalList__.length,proto;x<len;x++)
   {
-    if(window[__GlobalList__[x]] !== undefined && window[__GlobalList__[x]].prototype !== undefined) init(window[__GlobalList__[x]].prototype,window);
+    if(window[__GlobalList__[x]] !== undefined && window[__GlobalList__[x]].prototype !== undefined) init(__GlobalList__[x],window[__GlobalList__[x]].prototype,window);
   }
-    
+  
+  attachHtmlWatcher();
+  /* ENDREGION */
+  
+  /* AMD AND COMMONJS COMPATABILITY */
+  /* REGION */
+  
   if (typeof define === "function" && define.amd){
     define('pikantny',function(){return init;});
   }
   if(typeof module === 'object' && typeof module.exports === 'object'){
     module.exports.pikantny = init;
   }
+  
+  /* ENDREGION */
   
   return init;
 }());

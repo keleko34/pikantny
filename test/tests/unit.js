@@ -1,47 +1,35 @@
 /* 
   Need to test:
   
-  Standard property: (innerHTML, className, id, onclick)
+  Standard property: (innerHTML, className, id, onclick) v/
   -----------------------
   - standard prop set/get
+  - stanard add and remove events
   - standard prop events
   - standard prop update events
   - standard prop prevent defaults
   - standard prop prevent propogation
   - standard prop prevent immediate propogation
   - standard prop stop update
+  - standard event properties
   
-  Standard property, bubbled: (innerHTML, className, id, onclick)
-  -----------------------------
-  - standard prop events, event on parent elements
-  - standard prop update events, event on parent elements
-  - standard prop prevent defaults, event on parent elements
-  - standard prop prevent propogation, event on parent elements
-  - standard prop prevent immediate propogation, event on parent elements
-  - standard prop stop update, event on parent elements
-  
-  Function property: (appendChild, addEventListener, setAttribute)
+  Function property: (appendChild, addEventListener, setAttribute) v/
   ---------------------
   - function props run
+  - stanard add and remove events
   - function prop events
   - funciton prop update events
   - function prop prevent default
   - function prop prevent propogation
   - function prop prevent immediate propogation
   - function prop stop update
+  - function event properties
   
-  Function property, bubbled: (appendChild, addEventListener, setAttribute)
-  -----------------------------
-  - function prop events, event on parent elements
-  - funciton prop update events, event on parent elements
-  - function prop prevent default, event on parent elements
-  - function prop prevent propogation, event on parent elements
-  - function prop prevent immediate propogation, event on parent elements
-  - function prop stop update, event on parent elements
-  
-  Element attributes: (class, role, disabled, custom)
+  Element attributes: (id, role, disabled, custom) v/
   ----------------------
   - element attribute set/get
+  - standard add and remove events
+  - element attribute event properties
   - element attribute event
   - element attribute update event
   - element attribute prevent default
@@ -49,18 +37,11 @@
   - element attribute stop immediate propogation
   - element attribute stop update
   
-  Element attributes, bubbled: (class, role, disabled, custom)
-  ------------------------------
-  - element attribute event, event on parent elements
-  - element attribute update event, event on parent elements
-  - element attribute prevent default, event on parent elements
-  - element attribute stop propogation, event on parent elements
-  - element attribute stop immediate propogation, event on parent elements
-  - element attribute stop update, event on parent elements
-  
   Element styles: (color, font-size, margin)
   -----------------
   - element style set/get
+  - standard add and remove events
+  - element attribute event properties
   - element style event
   - element style update event
   - element style prevent default
@@ -68,14 +49,11 @@
   - element style stop immediate propogation
   - element style stop update
   
-  Element styles, bubbled: (class, role, disabled, custom)
-  ------------------------------
-  - element style event, event on parent elements
-  - element style update event, event on parent elements
-  - element style prevent default, event on parent elements
-  - element style stop propogation, event on parent elements
-  - element style stop immediate propogation, event on parent elements
-  - element style stop update, event on parent elements
+  Element Style Special:
+  ------------------------
+  -webkit-user-select  Chrome all / Safari all
+  -moz-user-select     Firefox all
+  -ms-user-select      IE all
   
   html/text events:
   ('textContent','innerHTML','innerText','outerHTML','outerText','appendChild','removeChild','replaceChild','insertAdjacentHTML','insertBefore')
@@ -110,10 +88,13 @@
 
 mocha.setup('bdd');
 
-(function(describe,expect){
-  
+(function(describe,it,expect,spy){
+    
   /* mocha tests */
-  
+  standardDomProperties(describe,it,expect,spy);
+  standardDomFunction(describe,it,expect,spy);
+  standardDomAttributes(describe,it,expect,spy);
+  standardDomStyles(describe,it,expect,spy);
   
   mocha.run();
-}(describe,chai.expect));
+}(describe,it,chai.expect,sinon.spy));

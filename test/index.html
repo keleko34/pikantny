@@ -7,18 +7,23 @@
   <body>
     <div class="test_subjects">
         <h2>Element tests:</h2>
-        <div class="test_subject__element">
+        <div id="test_element" class="test_subject__element" role="button" data-custom="custom_data" style="color:rgb(0, 0, 0);font-size:14px;margin:0px;">
             Parent Element
-            <div class="test_subject__element__child"> - Sub Element</div>
+            <div class="test_subject__element__child" id="test_element__sub"> - Sub Element</div>
         </div>
-      <div>
+      <div class="test_inputs">
           <h2>Input tests:</h2>
-          <input class="test_subject__element__input" type="text" value="Input Element"/>
-          <input class="test_subject__element__checkbox" type="checkbox" value="Input Element"/>
+          <input id="test_input" class="test_subject__element__input" type="text" value="Input Element"/><br />
+          <input id="test_checkbox" class="test_subject__element__checkbox" type="checkbox"/><br />
+          <textarea id="test_textarea" class="test_subject__element__textarea">Textarea Element</textarea><br />
+          <select id="test_selection" class="test_subject__element__select"><br />
+            <option value="1">1</option>
+            <option value="2">2</option>
+          </select>
       </div>
     </div>
     <div class="test">
-      <div class="section"><a href="#messages">Mocha Tests</a></div>
+      <div class="section">Mocha</div>
       <div id="mocha">Usability</div>
       <div id="messages"></div>
       <div id="fixtures"></div>
@@ -29,6 +34,7 @@
     </div>
     <style>
       .test_subjects {
+        display: none;
         margin-left: 50px;
       }
       .test_subject__element__child {
@@ -47,13 +53,24 @@
         margin-top:10px;
       }
     </style>
+    <!-- old <script type="text/javascript" src="/KB.js"></script> -->
     <script type="text/javascript" src="/init.js"></script>
     <script type="text/javascript" src="/node_modules/lodash/lodash.min.js"></script>
     <script type="text/javascript" src="/node_modules/platform/platform.js"></script>
     <script type="text/javascript" src="/node_modules/benchmark/benchmark.js"></script>
     <script type="text/javascript" src="/node_modules/mocha/mocha.js"></script>
     <script type="text/javascript" src="/node_modules/chai/chai.js"></script>
-    <script type="text/javascript" src="/test/tests/usability.js"></script>
+    <script type="text/javascript" src="/node_modules/sinon/pkg/sinon.js"></script>
+    <script type="text/javascript" src="/node_modules/sinon-chai/lib/sinon-chai.js"></script>
+    
+    <!-- unit tests -->
+    <script type="text/javascript" src="/test/tests/unit/standard_dom_properties.js"></script>
+    <script type="text/javascript" src="/test/tests/unit/standard_dom_functions.js"></script>
+    <script type="text/javascript" src="/test/tests/unit/standard_dom_attributes.js"></script>
+    <script type="text/javascript" src="/test/tests/unit/standard_dom_styles.js"></script>
+    <script type="text/javascript" src="/test/tests/unit.js"></script>
+    
+    <!-- performance -->
     <script type="text/javascript" src="/test/tests/performance.js"></script>
   </body>
 </html>
