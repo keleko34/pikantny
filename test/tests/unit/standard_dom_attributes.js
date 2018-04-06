@@ -59,7 +59,6 @@ var standardDomAttributes = (function(){
                      count++;
                      expect(parentElement.id).to.equal((count === 1 ? inner : test));
                      cb.apply(this,arguments);
-                     if(count === 2) parentElement.removeEventListener('setAttribute',testFunc);
                  }
 
                  parentElement.addEventListener('setAttribute',testFunc);
@@ -70,6 +69,8 @@ var standardDomAttributes = (function(){
                  parentElement.setAttribute('id',inner);
 
                  expect(cb.callCount).to.equal(2);
+                   
+                 parentElement.removeEventListener('setAttribute',testFunc);
              });
 
             /* add update listeners */
@@ -84,7 +85,6 @@ var standardDomAttributes = (function(){
                    count++;
                    expect(parentElement.id).to.equal((count === 1 ? test : inner));
                    cb.apply(this,arguments);
-                   if(count === 2) parentElement.removeEventListener('setAttributeupdate',testFunc);
                }
 
                parentElement.addEventListener('setAttributeupdate',testFunc);
@@ -95,6 +95,8 @@ var standardDomAttributes = (function(){
                parentElement.setAttribute('id',inner);
 
                expect(cb.callCount).to.equal(2);
+                 
+               parentElement.removeEventListener('setAttributeupdate',testFunc);
            });
 
             /* event object */
@@ -104,17 +106,17 @@ var standardDomAttributes = (function(){
 
                function testFunc(e)
                {
-                  expect(e instanceof Event).to.equal(true);
                   expect(e.arguments).to.not.equal(undefined);
-                  expect(e.method).to.not.equal(undefined);
+                  expect(e.attr).to.not.equal(undefined);
                   expect(e.stopped).to.not.equal(undefined);
                   expect(e.stop).to.not.equal(undefined);
-                  parentElement.removeEventListener('setAttribute',testFunc);
                }
 
                parentElement.addEventListener('setAttribute',testFunc);
                parentElement.setAttribute('id',test);
                parentElement.setAttribute('id',inner);
+              
+               parentElement.removeEventListener('setAttribute',testFunc);
            });
 
             /* preventDefault */
@@ -131,7 +133,6 @@ var standardDomAttributes = (function(){
                    count++;
                    expect(parentElement.id).to.equal(inner);
                    cb.apply(this,arguments);
-                   if(count === 2) parentElement.removeEventListener('setAttribute',testFunc);
                }
 
                parentElement.addEventListener('setAttribute',testFunc);
@@ -144,6 +145,8 @@ var standardDomAttributes = (function(){
 
                expect(cb.callCount).to.equal(2);
                expect(parentElement.id).to.equal(inner);
+              
+               parentElement.removeEventListener('setAttribute',testFunc);
             });
 
             /* stopPropogation */
@@ -355,9 +358,8 @@ var standardDomAttributes = (function(){
 
                function testFunc(e)
                {
-                  expect(e instanceof Event).to.equal(true);
                   expect(e.arguments).to.not.equal(undefined);
-                  expect(e.method).to.not.equal(undefined);
+                  expect(e.attr).to.not.equal(undefined);
                   expect(e.stopped).to.not.equal(undefined);
                   expect(e.stop).to.not.equal(undefined);
                   parentElement.removeEventListener('setAttribute',testFunc);
@@ -612,9 +614,8 @@ var standardDomAttributes = (function(){
 
                function testFunc(e)
                {
-                  expect(e instanceof Event).to.equal(true);
                   expect(e.arguments).to.not.equal(undefined);
-                  expect(e.method).to.not.equal(undefined);
+                  expect(e.attr).to.not.equal(undefined);
                   expect(e.stopped).to.not.equal(undefined);
                   expect(e.stop).to.not.equal(undefined);
                   inputElement.removeEventListener('setAttribute',testFunc);
@@ -886,9 +887,8 @@ var standardDomAttributes = (function(){
 
                function testFunc(e)
                {
-                  expect(e instanceof Event).to.equal(true);
                   expect(e.arguments).to.not.equal(undefined);
-                  expect(e.method).to.not.equal(undefined);
+                  expect(e.attr).to.not.equal(undefined);
                   expect(e.stopped).to.not.equal(undefined);
                   expect(e.stop).to.not.equal(undefined);
                   parentElement.removeEventListener('setAttribute',testFunc);

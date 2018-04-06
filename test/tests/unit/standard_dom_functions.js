@@ -72,13 +72,12 @@ var standardDomFunction = (function(){
                  {
                     expect(parentElement.querySelectorAll('input').length).to.equal(1);
                     cb.apply(this,arguments);
-                    parentElement.removeEventListener('appendChild',testFunc);
                     parentElement.innerHTML = inner;
                  }
 
                  parentElement.addEventListener('appendChildupdate',testFunc);
                  parentElement.appendChild(test);
-
+                 parentElement.removeEventListener('appendChildupdate',testFunc);
                  expect(cb.callCount).to.equal(1);
             });
 
@@ -89,18 +88,17 @@ var standardDomFunction = (function(){
 
               function testFunc(e)
               {
-                 expect(e instanceof Event).to.equal(true);
                  expect(e.arguments).to.not.equal(undefined);
-                 expect(e.method).to.not.equal(undefined);
+                 expect(e.attr).to.not.equal(undefined);
                  expect(e.stopped).to.not.equal(undefined);
                  expect(e.stop).to.not.equal(undefined);
                  expect(typeof e.arguments[0]).to.equal('object');
                  expect(e.arguments[0] instanceof HTMLElement).to.equal(true);
-                 parentElement.removeEventListener('appendChild',testFunc);
               }
 
               parentElement.addEventListener('appendChild',testFunc);
               parentElement.appendChild(test);
+              parentElement.removeEventListener('appendChild',testFunc);
               parentElement.innerHTML = inner;
             });
 
@@ -114,12 +112,11 @@ var standardDomFunction = (function(){
                 {
                    e.preventDefault();
                    cb.apply(this,arguments);
-                   parentElement.removeEventListener('appendChild',testFunc);
                 }
 
                 parentElement.addEventListener('appendChild',testFunc);
                 parentElement.appendChild(test);
-
+                parentElement.removeEventListener('appendChild',testFunc);
                 expect(cb.callCount).to.equal(1);
                 expect(parentElement.querySelectorAll('input').length).to.equal(0);
 
@@ -139,15 +136,14 @@ var standardDomFunction = (function(){
 
                     expect(childElement.querySelector('input')).to.equal(null);
                     cbChild.apply(this,arguments);
-                    childElement.removeEventListener('appendChild',testChildFunc);
-                    parentElement.removeEventListener('appendChild',cbParent);
                 }
 
                 childElement.addEventListener('appendChild',testChildFunc);
                 parentElement.addEventListener('appendChild',cbParent);
 
                 childElement.appendChild(test);
-
+                childElement.removeEventListener('appendChild',testChildFunc);
+                parentElement.removeEventListener('appendChild',cbParent);
                 expect(cbChild.callCount).to.equal(1);
                 expect(cbParent.callCount).to.equal(0);
 
@@ -257,40 +253,49 @@ var standardDomFunction = (function(){
             it("Should fire an event when a listener is attached before the method has been implemented",function(){
                 var cb = spy(),
                     cbSec = spy();
-
+                
+                function click()
+                {
+                  cbSec.apply(this,arguments);
+                }
+              
                 function testFunc(e)
                 {
                   cb.apply(this,arguments);
-                  parentElement.dispatchEvent(new MouseEvent('click'));
-                  expect(cbSec.callCount).to.equal(0);
+                  parentElement.removeEventListener('addEventListener',testFunc);
                 }
 
                 parentElement.addEventListener('addEventListener',testFunc);
-                parentElement.addEventListener('click',cbSec);
-
-                parentElement.removeEventListener('addEventListener',testFunc);
-                parentElement.removeEventListener('click',cbSec);
+                parentElement.addEventListener('click',click);
+                parentElement.dispatchEvent(new MouseEvent('click'));
+                parentElement.removeEventListener('click',click);
+                expect(cb.callCount).to.equal(1);
+                expect(cbSec.callCount).to.equal(1);
             });
 
             /* add update listeners */
             it("Should fire an update event after the method has been implemented",function(){
                 var cb = spy(),
                     cbSec = spy();
-
+                
+                function click()
+                {
+                  cbSec.apply(this,arguments);
+                }
+              
                 function testFunc(e)
                 {
                   cb.apply(this,arguments);
                   parentElement.dispatchEvent(new MouseEvent('click'));
+                  parentElement.removeEventListener('addEventListenerupdate',testFunc);
+                  parentElement.removeEventListener('click',click);
                 }
 
                 parentElement.addEventListener('addEventListenerupdate',testFunc);
-                parentElement.addEventListener('click',cbSec);
+                parentElement.addEventListener('click',click);
 
                 expect(cb.callCount).to.equal(1);
                 expect(cbSec.callCount).to.equal(1);
-
-                parentElement.removeEventListener('addEventListenerupdate',testFunc);
-                parentElement.removeEventListener('click',cbSec);
             });
 
             /* event object */
@@ -300,9 +305,8 @@ var standardDomFunction = (function(){
 
               function testFunc(e)
               {
-                  expect(e instanceof Event).to.equal(true);
                   expect(e.arguments).to.not.equal(undefined);
-                  expect(e.method).to.not.equal(undefined);
+                  expect(e.attr).to.not.equal(undefined);
                   expect(e.stopped).to.not.equal(undefined);
                   expect(e.stop).to.not.equal(undefined);
                   expect(typeof e.arguments[0]).to.equal('string');
@@ -509,9 +513,8 @@ var standardDomFunction = (function(){
 
                function testFunc(e)
                {
-                  expect(e instanceof Event).to.equal(true);
                   expect(e.arguments).to.not.equal(undefined);
-                  expect(e.method).to.not.equal(undefined);
+                  expect(e.attr).to.not.equal(undefined);
                   expect(e.stopped).to.not.equal(undefined);
                   expect(e.stop).to.not.equal(undefined);
                   expect(typeof e.arguments[0]).to.equal('string');

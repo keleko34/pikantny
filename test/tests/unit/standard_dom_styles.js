@@ -2,13 +2,13 @@ var standardDomStyles = (function(){
   
   return function(describe,it,expect,spy){
     
-    var parentElement = document.querySelector('.test_subject__element'),
-        childElement = document.querySelector('.test_subject__element__child');
-    
     describe("Standard dom styles", function() {
         describe("color", function() {
             /* default functionality */
             it("Should function normally returning and setting color style",function(){
+              
+              var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
               
                var inner = parentElement.style.color,
                    check = 'rgb(0, 0, 0)',
@@ -31,20 +31,32 @@ var standardDomStyles = (function(){
             /* remove and add listeners */
             it("Should be able to add and remove event listeners",function(){
               
+              var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
+              
                var test = "rgb(240, 15, 0)",
                    inner = parentElement.style.color, 
                    cb = spy();
+                
+               function color(e)
+               {
+                 cb.call(this,arguments);
+               }
               
-               parentElement.addEventListener('color',cb);
+               parentElement.addEventListener('color',color);
                parentElement.style.color = test;
                expect(cb.callCount).to.equal(1);
-               parentElement.removeEventListener('color',cb);
+              
+               parentElement.removeEventListener('color',color);
                parentElement.style.color = inner;
                expect(cb.callCount).to.equal(1);
            });
           
             /* add standard listeners */
             it("Should fire an event when a listener is attached before the style has been set",function(){
+              
+              var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
               
                var test = "rgb(240, 15, 0)",
                    inner = parentElement.style.color,
@@ -73,6 +85,9 @@ var standardDomStyles = (function(){
             /* add update listeners */
             it("Should fire an update event after the style has been set",function(){
               
+                var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
+              
                 var test = "rgb(240, 15, 0)",
                     inner = parentElement.style.color,
                     cb = spy(),
@@ -100,12 +115,14 @@ var standardDomStyles = (function(){
             /* event object */
             it("Should contain all standard Event() properties and the new: value, oldvalue, stopped, stop in the event object",function(){
               
+              var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
+              
                var test = "rgb(240, 15, 0)",
                    inner = parentElement.style.color;
 
                function testFunc(e)
                {
-                   expect(e instanceof Event).to.equal(true);
                    expect(e.value).to.not.equal(undefined);
                    expect(e.oldValue).to.not.equal(undefined);
                    expect(e.stopped).to.not.equal(undefined);
@@ -120,6 +137,9 @@ var standardDomStyles = (function(){
           
             /* preventDefault */
             it("Should prevent the style from being set when event.preventDefault(); is called",function(){
+              
+              var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
               
                var test = "rgb(240, 15, 0)",
                    inner = parentElement.style.color,
@@ -154,7 +174,10 @@ var standardDomStyles = (function(){
             /* stopPropogation */
             it("Should prevent bubbling when event.stopPropogation(); is called",function(){
               
-               expect("Test broken by bug in chrome").to.equal('version 50+');
+               //expect("Test broken by bug in chrome").to.equal('version 50+');
+              
+              var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
               
                var test = "rgb(240, 15, 0)",
                    innerChild = childElement.style.color,
@@ -196,7 +219,8 @@ var standardDomStyles = (function(){
             /* stopImmediatePropogation */
             it("Should prevent any further events from firing when event.stopImmediatePropogation(); is called",function(){
               
-                var parentElement = document.querySelector('.test_subject__element');
+                var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
               
                var test = "rgb(240, 15, 0)",
                    inner = parentElement.style.color,
@@ -234,7 +258,8 @@ var standardDomStyles = (function(){
             /* stopped */
             it("Should not fire a update listener if either element.stop(); or event.stop(); have been called prior to setting",function(){
               
-                var parentElement = document.querySelector('.test_subject__element');
+               var parentElement = document.querySelector('.test_subject__element'),
+                  childElement = document.querySelector('.test_subject__element__child');
               
                var test = "rgb(240, 15, 0)",
                    test2 = "rgb(240, 15, 100)",
@@ -274,6 +299,7 @@ var standardDomStyles = (function(){
 
                parentElement.style.color = inner;
            });
+            
         });
       
         describe("font-size", function() {
