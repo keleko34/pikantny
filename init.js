@@ -8,8 +8,8 @@
   - globalized events - window? v/
   - inputs setting values v/
   - all text based operations fire one 'text|html' v/
-  - if prop doesn't exist create it on listener (default observable, attribute) setProperty, setAttribute, addEventListener (#default property)
-  - base non injected functions EX: querySelectorAll() => querySelectorAll.base() === non-injected
+  - if prop doesn't exist create it on listener (default observable, attribute) setProperty, setAttribute, addEventListener (#default property) v/
+  - base non injected functions EX: querySelectorAll() => querySelectorAll.base() === non-injected v/
   
   Major
   * __pikantnyExtensions__ //extensions attached to each node
@@ -18,15 +18,9 @@
   *** issues with styles resetting the descriptor (Garbage collection issue),
       found chrome bug, ref: https://bugs.chromium.org/p/chromium/issues/detail?id=782776
       doesn't break in KB `research workaround`
-  
-  *** addEventListenerupdate fires itself, need to circumvent
 */
 
 /* TODO */
-
-/* test bubbled event add and removal */
-
-/* custom property listeners when used in addEventListener */
 
 "use strict";
 
@@ -413,9 +407,18 @@ window.pikantny = (function(){
       for(var x=0,keys=Object.keys(listeners),len=keys.length,key;x<len;x++)
       {
         key = keys[x];
-        if(__CSSList__.indexOf(key) !== -1 && listeners[key].length !== 0) attachStyleListeners(el,getInlineKey(key),getStyleKey(key));
-        
-        if(['value','checked','selectedIndex'].indexOf(key) !== -1 && listeners[key].length !== 0) attachInputListeners(el);
+        if(__CSSList__.indexOf(key) !== -1 && listeners[key].length !== 0)
+        {
+          attachStyleListeners(el,getInlineKey(key),getStyleKey(key));
+        }
+        else if(['value','checked','selectedIndex'].indexOf(key) !== -1 && listeners[key].length !== 0)
+        {
+          attachInputListeners(el);
+        }
+        else if(el.getAttribute(key) === null && el[key] === undefined && __Extended__.indexOf(key) === -1)
+        {
+          processNewAttr(el,key);
+        }
         
         if(listeners[key].length !== 0 && listeners[key][0].parent !== undefined)
         {
@@ -613,14 +616,13 @@ window.pikantny = (function(){
         __update = _updateStandard,
         __set = _setStandard,
         __extensions = {},
-        __value,
         __oldValue;
     
     /* if extended passed EX: `innerHTML` will fire standard event as well as `html` event */
     function setExtended(v)
     {
       /* get the current value of this property */
-      __oldValue = (__value || __descGet.call(this));
+      __oldValue = __descGet.call(this);
       
       /* get the extensions for this node */
       __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
@@ -630,7 +632,6 @@ window.pikantny = (function(){
         if(__set(this,__extended,v,__oldValue,__extensions,__extensions.stop) === true)
         {
           /* if the default was not prevented, set the value */
-          __value = v;
           __descSet.call(this,v);
 
           /* if update listeners were not stopped run them */
@@ -650,7 +651,7 @@ window.pikantny = (function(){
     function set(v)
     {
       /* get the current value of this property */
-      __oldValue = (__value || __descGet.call(this));
+      __oldValue = __descGet.call(this);
       
       /* get the extensions for this node */
       __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
@@ -659,7 +660,6 @@ window.pikantny = (function(){
       if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop) === true)
       {
         /* if the default was not prevented, set the value */
-        __value = v;
         __descSet.call(this,v);
 
         /* if update listeners were not stopped run them */
@@ -690,13 +690,12 @@ window.pikantny = (function(){
         __set = _setStandard,
         __extensions = {},
         __writable = descriptor.writable,
-        __value = __descriptor.value,
         __oldValue;
     
     /* getter method, returns current value */
     function get()
     {
-      return (__value || __descriptor.value);
+      return __descriptor.value;
     }
     
     function setExtended(v)
@@ -705,7 +704,7 @@ window.pikantny = (function(){
       if(__writable)
       {
         /* get the current value of this property */
-        __oldValue = (__value || __descriptor.value);
+        __oldValue = __descriptor.value;
 
         /* get the extensions for this node */
         __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
@@ -715,7 +714,6 @@ window.pikantny = (function(){
           if(__set(this,__extended,v,__oldValue,__extensions,__extensions.stop) === true)
           {
             /* if the default was not prevented, set the value */
-            __value = v;
             __descriptor.value = v;
 
             /* if update listeners were not stopped run them */
@@ -739,7 +737,7 @@ window.pikantny = (function(){
       if(__writable)
       {
         /* get the current value of this property */
-        __oldValue = (__value || __descriptor.value);
+        __oldValue = __descriptor.value;
         
         /* get the extensions for this node */
         __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
@@ -748,7 +746,6 @@ window.pikantny = (function(){
         if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop) === true)
         {
           /* if the default was not prevented, set the value */
-          __value = v;
           __descriptor.value = v;
           
           /* if update listeners were not stopped run them */
@@ -845,9 +842,9 @@ window.pikantny = (function(){
     /* return new descriptor */
     return {
       value:(__extended !== undefined ? setExtended : set),
-      writable:descriptor.writable,
+      writable:false,
       enumerable:descriptor.enumerable,
-      configurable:true
+      configurable:false
     }
   }
   
@@ -880,7 +877,6 @@ window.pikantny = (function(){
         __update = _updateStandard,
         __element = {},
         __extensions = {},
-        __value,
         __oldValue,
         __cssRules;
     
@@ -891,7 +887,7 @@ window.pikantny = (function(){
       if(this instanceof Attr)
       {
         /* fetch the old value */
-        __oldValue = (__value || __descGet.call(this));
+        __oldValue = __descGet.call(this);
         
         /* element that holds this attribute */
         __element = this.ownerElement;
@@ -926,13 +922,11 @@ window.pikantny = (function(){
             {
               if(__set(__element,__AttrTranslate__[key],v,__oldValue,__extensions,__extensions.stop) === true)
               {
-                __value = v;
                 __descSet.call(this,v);
               }
             }
             else
             {
-              __value = v;
               __descSet.call(this,v);
             }
           }
@@ -951,7 +945,6 @@ window.pikantny = (function(){
       else
       {
         /* all other instance types just run their redefined functionality */
-        __value = v;
         return __descSet.call(this,v);
       }
     }
@@ -1096,14 +1089,13 @@ window.pikantny = (function(){
         __update = _updateStandard,
         __set = _setStandard,
         __extensions = {},
-        __value,
         __oldValue;
     
     /* main setter method */
     function set(v)
     {
       /* get the old event */
-      __oldValue = (__value || __descGet.call(this));
+      __oldValue = __descGet.call(this);
       
       /* get the current extensions */
       __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
@@ -1112,7 +1104,6 @@ window.pikantny = (function(){
       if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop) === true)
       {
         /* set the new value */
-        __value = v;
         __descSet.call(this,v);
         
         /* if update listeners were not stopped run them */
@@ -1537,7 +1528,6 @@ window.pikantny = (function(){
         __descGet = __descriptor.get,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
         __oldValue = __proto.csssText,
-        __value = __proto.csssText,
         __cssRules;
     
     function set(v)
