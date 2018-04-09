@@ -291,14 +291,14 @@ var standardDomProperties = (function(){
     
     /* ENDREGION */
     
-    describe("Standard dom properties",function(){
+    describe("STANDARD DOM PROPERTIES:",function(){
       runCategory("innerHTML","<div>test</div>",'#test_element','#test_element__sub');
       runCategory("className","test__class",'#test_element','#test_element__sub');
       runCategory("id","test__id",'.test_subject__element','.test_subject__element__child');
       runCategory("onclick",function(){},'#test_element','#test_element__sub');
     });
     
-    describe("Custom dom properties",function(){
+    describe("CUSTOM DOM PROPERTIES",function(){
       runCategory("foo","test__foo",'#test_element','#test_element__sub');
       runCategory("bar","test__bar",'#test_element','#test_element__sub');
     })

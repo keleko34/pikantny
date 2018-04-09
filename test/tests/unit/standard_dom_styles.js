@@ -1,315 +1,377 @@
 var standardDomStyles = (function(){
-  
-  return function(describe,it,expect,spy){
+  return function(describe,it,expect,spy)
+  {
+    var methods = [
+          defaultPropertyFunctionality,
+          defaulPropertytListeners,
+          defaulStyletListeners,
+          defaultBubbledListeners,
+          preValueSet,
+          postValueSet,
+          eventProperties,
+          defaultPrevented,
+          stopBubbledListeners,
+          stopImmediateListeners,
+          stopUpdateListeners,
+          bubbleFromNewElements,
+          cssTextUpdate,
+          styleAttrUpdate,
+          setPropertyUpdate
+        ];
     
-    describe("Standard dom styles", function() {
-        describe("color", function() {
-            /* default functionality */
-            it("Should function normally returning and setting color style",function(){
-              
-              var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-               var inner = parentElement.style.color,
-                   check = 'rgb(0, 0, 0)',
-                   test = "rgb(240, 15, 0)";
-               /* check default */
-               expect(inner).to.equal(check);
-               parentElement.style.color = test;
-               /* check replaced content */
-               expect(parentElement.style.color).to.equal(test);
-              
-               expect(getComputedStyle(parentElement).color).to.equal(test);
+    function runCategory(key,keyProper,value,parent,child)
+    {
+      describe(key+':', function(){
+        for(var x=0,len=methods.length;x<len;x++)
+        {
+          methods[x](key,keyProper,value,parent,child);
+        }
+      });
+    }
 
-               /* set content back */
-               parentElement.style.color = inner;
-               expect(parentElement.style.color).to.equal(check);
-              
-               expect(getComputedStyle(parentElement).color).to.equal(check);
-           });
-          
-            /* remove and add listeners */
-            it("Should be able to add and remove event listeners",function(){
-              
-              var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-               var test = "rgb(240, 15, 0)",
-                   inner = parentElement.style.color, 
-                   cb = spy();
-                
-               function color(e)
-               {
-                 cb.call(this,arguments);
-               }
-              
-               parentElement.addEventListener('color',color);
-               parentElement.style.color = test;
-               expect(cb.callCount).to.equal(1);
-              
-               parentElement.removeEventListener('color',color);
-               parentElement.style.color = inner;
-               expect(cb.callCount).to.equal(1);
-           });
-          
-            /* add standard listeners */
-            it("Should fire an event when a listener is attached before the style has been set",function(){
-              
-              var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-               var test = "rgb(240, 15, 0)",
-                   inner = parentElement.style.color,
-                   cb = spy(),
-                   count = 0;
+    /* INDIVIDUAL TESTS */
+    /* REGION */
+    
+    function defaultPropertyFunctionality(key,keyProper,value,node)
+    {
+      it("Functionality of "+key+" should update as originally intended",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value; 
 
-               function testFunc(e)
-               {
-                   count++;
-                   expect(parentElement.style.color).to.equal((count === 1 ? inner : test));
-                   expect(getComputedStyle(parentElement).color).to.equal((count === 1 ? inner : test));
-                   cb.apply(this,arguments);
-                   if(count === 2) parentElement.removeEventListener('color',testFunc);
-               }
+        /* insert new value */
+        __node.style[key] = __value;
+        expect(__node.style[key]).to.equal(__value);
 
-               parentElement.addEventListener('color',testFunc);
-               parentElement.style.color = test;
+        /* reset value */
+        __node.style[key] = __oldValue;
+        expect(__node.style[key]).to.equal(__oldValue);
+        done();
+      });
+    }
+    
+    function defaulPropertytListeners(key,keyProper,value,node)
+    {
+      it("Listeners should add, remove and fire upon update",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value,
+            __cb = spy();
 
-               expect(cb.callCount).to.equal(1);
+        __node.addEventListener(key,__cb);
+        __node.style[key] = __value;
+        expect(__cb.callCount).to.equal(1);
 
-               parentElement.style.color = inner;
+        __node.removeEventListener(key,__cb);
+        __node.style[key] = __oldValue;
+        expect(__cb.callCount).to.equal(1);
+        done();
+      });
+    }
+    
+    function defaulStyletListeners(key,keyProper,value,node)
+    {
+      it("CSS style syntax listeners should fire upon update",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value,
+            __cb = spy();
 
-               expect(cb.callCount).to.equal(2);
-           });
-          
-            /* add update listeners */
-            it("Should fire an update event after the style has been set",function(){
-              
-                var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-                var test = "rgb(240, 15, 0)",
-                    inner = parentElement.style.color,
-                    cb = spy(),
-                    count = 0;
+        __node.addEventListener(keyProper,__cb);
+        __node.style[key] = __value;
+        expect(__cb.callCount).to.equal(1);
 
-               function testFunc(e)
-               {
-                   count++;
-                   expect(parentElement.style.color).to.equal((count === 1 ? test : inner));
-                   expect(getComputedStyle(parentElement).color).to.equal((count === 1 ? test : inner));
-                   cb.apply(this,arguments);
-                   if(count === 2) parentElement.removeEventListener('colorupdate',testFunc);
-               }
+        __node.removeEventListener(keyProper,__cb);
+        __node.style[key] = __oldValue;
+        expect(__cb.callCount).to.equal(1);
+        done();
+      });
+    }
+    
+    function defaultBubbledListeners(key,keyProper,value,node,sub_node)
+    {
+      it("Listeners should fire upon update of a child element in a bubbled manner",function(done){
+        var __node = document.querySelector(node),
+            __sub_node = document.querySelector(sub_node),
+            __oldValue = __sub_node.style[key],
+            __value = value,
+            __cb = spy();
+        
+        __node.addEventListener(key,__cb);
+        __sub_node.style[key] = __value;
+        expect(__cb.callCount).to.equal(1);
 
-               parentElement.addEventListener('colorupdate',testFunc);
-               parentElement.style.color = test;
+        __node.removeEventListener(key,__cb);
+        __sub_node.style[key] = __oldValue;
+        done();
+      })
+    }
+    
+    function preValueSet(key,keyProper,value,node)
+    {
+      it("An event should fire prior to the value being set",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value;
+        
+        function CV(e)
+        {
+          expect(__node.style[key]).to.equal(__oldValue);
+        }
 
-               expect(cb.callCount).to.equal(1);
+        __node.addEventListener(key,CV);
+        __node.style[key] = __value;
 
-               parentElement.style.color = inner;
+        __node.removeEventListener(key,CV);
+        __node.style[key] = __oldValue;
+        done();
+      });
+    }
+    
+    function postValueSet(key,keyProper,value,node)
+    {
+      it("An update event should fire after the value has been set",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value;
+        
+        function CV(e)
+        {
+          expect(__node.style[key]).to.equal(__value);
+        }
 
-               expect(cb.callCount).to.equal(2);
-           });
-          
-            /* event object */
-            it("Should contain all standard Event() properties and the new: value, oldvalue, stopped, stop in the event object",function(){
-              
-              var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-               var test = "rgb(240, 15, 0)",
-                   inner = parentElement.style.color;
+        __node.addEventListener(key+'update',CV);
+        __node.style[key] = __value;
 
-               function testFunc(e)
-               {
-                   expect(e.value).to.not.equal(undefined);
-                   expect(e.oldValue).to.not.equal(undefined);
-                   expect(e.stopped).to.not.equal(undefined);
-                   expect(e.stop).to.not.equal(undefined);
-                   parentElement.removeEventListener('color',testFunc);
-               }
+        __node.removeEventListener(key+'update',CV);
+        __node.style[key] = __oldValue;
+        done();
+      });
+    }
+    
+    function eventProperties(key,keyProper,value,node)
+    {
+      it("All event properties should exist on the passed event object",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value;
+        
+        function CV(e)
+        {
+          expect(e.oldValue).to.equal(__oldValue);
+          expect(e.value).to.equal(__value);
+          expect(e.cancelable).to.equal(true);
+          expect(e.defaultPrevented).to.equal(false);
+          expect(e.bubbles).to.equal(true);
+          expect(e.attr).to.equal(key);
+          expect(e.style).to.equal(keyProper);
+          expect(e.target).to.equal(__node);
+          expect(e.stopped).to.equal(false);
+          expect(typeof e.preventDefault).to.equal('function');
+          expect(typeof e.stopPropagation).to.equal('function');
+          expect(typeof e.stopImmediatePropagation).to.equal('function');
+          expect(typeof e.stop).to.equal('function');
+        }
 
-               parentElement.addEventListener('color',testFunc);
-               parentElement.style.color = test;
-               parentElement.style.color = inner;
-           });
-          
-            /* preventDefault */
-            it("Should prevent the style from being set when event.preventDefault(); is called",function(){
-              
-              var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-               var test = "rgb(240, 15, 0)",
-                   inner = parentElement.style.color,
-                   cb = spy(),
-                   count = 0;
+        __node.addEventListener(key,CV);
+        __node.style[key] = __value;
 
-               function testFunc(e)
-               {
-                   e.preventDefault();
+        __node.removeEventListener(key,CV);
+        __node.style[key] = __oldValue;
+        done();
+      });
+    }
+    
+    function defaultPrevented(key,keyProper,value,node)
+    {
+      it("A value should not be set if event.preventDefault is called",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value;
+        
+        function CV(e)
+        {
+          e.preventDefault();
+          expect(e.defaultPrevented).to.equal(true);
+        }
+        
+        __node.addEventListener(key,CV);
+        __node.style[key] = __value;
+        expect(__node.style[key]).to.equal(__oldValue);
+        
+        __node.removeEventListener(key,CV);
+        __node.style[key] = __oldValue;
+        done();
+      });
+    }
+    
+    function stopBubbledListeners(key,keyProper,value,node,sub_node)
+    {
+      it("Bubbled Parent listeners should not be called if event.stopPropogation is called",function(done){
+        var __node = document.querySelector(node),
+            __sub_node = document.querySelector(sub_node),
+            __oldValue = __sub_node.style[key],
+            __value = value,
+            __cb = spy();
+        
+        function CV(e)
+        {
+          e.stopPropagation();
+          expect(e.bubbles).to.equal(false);
+        }
+        
+        __sub_node.addEventListener(key,CV);
+        __node.addEventListener(key,__cb);
+        __sub_node.style[key] = __value;
+        expect(__cb.callCount).to.equal(0);
+        
+        __sub_node.removeEventListener(key,CV);
+        __node.removeEventListener(key,__cb);
+        __sub_node.style[key] = __oldValue;
+        done();
+      })
+    }
+    
+    function stopImmediateListeners(key,keyProper,value,node)
+    {
+      it("After event.stopImmediatePropogation is called no other listeners should be fired",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value,
+            __cb = spy();
+        
+        function CV(e)
+        {
+          e.stopImmediatePropagation();
+          expect(e.bubbles).to.equal(false);
+        }
+        
+        __node.addEventListener(key,CV);
+        __node.addEventListener(key,__cb);
+        __node.style[key] = __value;
+        expect(__cb.callCount).to.equal(0);
+        
+        __node.removeEventListener(key,CV);
+        __node.removeEventListener(key,__cb);
+        __node.style[key] = __oldValue;
+        done();
+      });
+    }
+    
+    function stopUpdateListeners(key,keyProper,value,node)
+    {
+      it("After event.stop is called update listeners should not be fired",function(done){
+        var __node = document.querySelector(node),
+            __oldValue = __node.style[key],
+            __value = value,
+            __cb = spy();
+        
+        function CV(e)
+        {
+          e.stop();
+          expect(e.stopped).to.equal(true);
+        }
+        
+        __node.addEventListener(key,CV);
+        __node.addEventListener(key+'update',__cb);
+        __node.style[key] = __value;
+        expect(__cb.callCount).to.equal(0);
+        
+        __node.removeEventListener(key,CV);
+        __node.removeEventListener(key+'update',__cb);
+        __node.style[key] = __oldValue;
+        done();
+      });
+    }
+    
+    function bubbleFromNewElements(key,keyProper,value,node)
+    {
+      it("When a new element is added it should also bubble the event",function(done){
+        var __node = document.querySelector(node),
+            __sub_node = document.createElement('div'),
+            __sub_node2 = document.createElement('div'),
+            __oldValue = __node.innerHTML,
+            __value = value,
+            __cb = spy();
+        
+        __node.addEventListener(key,__cb);
+        __node.appendChild(__sub_node);
+        __sub_node.style[key] = __value;
+        expect(__cb.callCount).to.equal(1);
+        
+        __node.insertBefore(__sub_node2,__sub_node);
+        __sub_node2.style[key] = __value;
+        expect(__cb.callCount).to.equal(2);
+        
+        __node.removeEventListener(key,__cb);
+        __node.innerHTML = __oldValue;
+        done();
+      });
+    }
+    
+    function cssTextUpdate(key,keyProper,value,node)
+    {
+      it("Style listeners should fire when cssText is updated",function(done){
+          var __node = document.querySelector(node),
+              __oldValue = __node.style[key],
+              __value = value,
+              __cb = spy();
 
-                   count++;
-                   expect(parentElement.style.color).to.equal(inner);
-                   expect(getComputedStyle(parentElement).color).to.equal(inner);
-                   cb.apply(this,arguments);
-                   if(count === 2) parentElement.removeEventListener('color',testFunc);
-               }
+              __node.addEventListener(key,__cb);
+              __node.style.cssText = keyProper+":"+__value+";";
+              expect(__cb.callCount).to.equal(1);
 
-               parentElement.addEventListener('color',testFunc);
-               parentElement.style.color = test;
+              __node.removeEventListener(key,__cb);
+              __node.style.cssText = keyProper+":"+__oldValue+";";
+              done();
+      });
+    }
+    
+    function styleAttrUpdate(key,keyProper,value,node)
+    {
+      it("Style listeners should fire when the style attribute on an element is updated",function(done){
+          var __node = document.querySelector(node),
+              __oldValue = __node.style[key],
+              __value = value,
+              __cb = spy();
 
-               expect(cb.callCount).to.equal(1);
-               expect(parentElement.style.color).to.equal(inner);
-               expect(getComputedStyle(parentElement).color).to.equal(inner);
+              __node.addEventListener(key,__cb);
+              __node.setAttribute('style',keyProper+":"+__value+";");
+              expect(__cb.callCount).to.equal(1);
 
-               parentElement.style.color = inner;
+              __node.removeEventListener(key,__cb);
+              __node.setAttribute('style',keyProper+":"+__oldValue+";");
+              done();
+      });
+    }
+    
+    function setPropertyUpdate(key,keyProper,value,node)
+    {
+      it("Style listeners should fire when setProperty or removeProperty methods are used",function(done){
+          var __node = document.querySelector(node),
+              __oldValue = __node.style[key],
+              __value = value,
+              __cb = spy();
 
-               expect(cb.callCount).to.equal(2);
-               expect(parentElement.style.color).to.equal(inner);
-               expect(getComputedStyle(parentElement).color).to.equal(inner);
-            });
-          
-            /* stopPropogation */
-            it("Should prevent bubbling when event.stopPropogation(); is called",function(){
-              
-               //expect("Test broken by bug in chrome").to.equal('version 50+');
-              
-              var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-               var test = "rgb(240, 15, 0)",
-                   innerChild = childElement.style.color,
-                   innerParent = parentElement.style.color,
-                   cbChild = spy(),
-                   cbParent = spy(),
-                   countChild = 0;
+              __node.addEventListener(key,__cb);
+              __node.style.setProperty(keyProper,__value);
+              __node.style.removeProperty(keyProper);
+              expect(__cb.callCount).to.equal(2);
 
-               function testChildFunc(e)
-               {
-                  
-                   childElement = document.querySelector('.test_subject__element__child');
-                 
-                   e.stopPropagation();
-                   countChild++;
-                   expect(childElement.style.color).to.equal((countChild === 1 ? innerChild : test));
-                   cbChild.apply(this,arguments);
-                   if(countChild === 2)
-                   {
-                       childElement.removeEventListener('color',testChildFunc);
-                       parentElement.removeEventListener('color',cbParent);
-                   }
-               }
-
-               childElement.addEventListener('color',testChildFunc);
-               parentElement.addEventListener('color',cbParent);
-
-               childElement.style.color = test;
-
-               expect(cbChild.callCount).to.equal(1);
-               expect(cbParent.callCount).to.equal(0);
-
-               childElement.style.color = innerChild;
-
-               expect(cbChild.callCount).to.equal(2);
-               expect(cbParent.callCount).to.equal(0);
-           });
-          
-            /* stopImmediatePropogation */
-            it("Should prevent any further events from firing when event.stopImmediatePropogation(); is called",function(){
-              
-                var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-               var test = "rgb(240, 15, 0)",
-                   inner = parentElement.style.color,
-                   cb = spy(),
-                   cbSec = spy(),
-                   count = 0;
-               function testFunc(e)
-               {
-                   e.stopImmediatePropagation();
-                   count++;
-                   expect(parentElement.style.color).to.equal((count === 1 ? inner : test));
-                   expect(getComputedStyle(parentElement).color).to.equal((count === 1 ? inner : test));
-                   cb.apply(this,arguments);
-                   if(count === 2)
-                   {
-                       parentElement.removeEventListener('color',testFunc);
-                       parentElement.removeEventListener('color',cbSec);
-                   }
-               }
-
-               parentElement.addEventListener('color',testFunc);
-               parentElement.addEventListener('color',cbSec);
-
-               parentElement.style.color = test;
-
-               expect(cb.callCount).to.equal(1);
-               expect(cbSec.callCount).to.equal(0);
-
-               parentElement.style.color = inner;
-
-               expect(cb.callCount).to.equal(2);
-               expect(cbSec.callCount).to.equal(0);
-           });
-          
-            /* stopped */
-            it("Should not fire a update listener if either element.stop(); or event.stop(); have been called prior to setting",function(){
-              
-               var parentElement = document.querySelector('.test_subject__element'),
-                  childElement = document.querySelector('.test_subject__element__child');
-              
-               var test = "rgb(240, 15, 0)",
-                   test2 = "rgb(240, 15, 100)",
-                   inner = parentElement.style.color,
-                   cb = spy(),
-                   cbSec = spy(),
-                   count = 0;
-
-               function testFunc(e)
-               {
-                   count++;
-                   if(count === 2) e.stop();
-                   cb.apply(this,arguments);
-                   if(count < 3) expect(e.stopped).to.equal(true);
-                   if(count === 4)
-                   {
-                       parentElement.removeEventListener('color',testFunc);
-                       parentElement.removeEventListener('colorupdate',cbSec);
-                   }
-               }
-
-               parentElement.addEventListener('color',testFunc);
-               parentElement.addEventListener('colorupdate',cbSec);
-
-               parentElement.stop();
-               parentElement.style.color = test;
-               expect(cb.callCount).to.equal(1);
-               expect(cbSec.callCount).to.equal(0);
-
-               parentElement.style.color = test2;
-               expect(cb.callCount).to.equal(2);
-               expect(cbSec.callCount).to.equal(0);
-
-               parentElement.style.color = "";
-               expect(cb.callCount).to.equal(3);
-               expect(cbSec.callCount).to.equal(1);
-
-               parentElement.style.color = inner;
-           });
-            
-        });
-      
-        describe("font-size", function() {
-      
-        });
-      
-        describe("margin", function() {
-      
-        });
+              __node.removeEventListener(key,__cb);
+              __node.style.setProperty(keyProper,__oldValue);
+              done();
+      });
+    }
+    
+    /* ENDREGION */
+    
+    describe("STANDARD DOM STYLES:",function(){
+      runCategory("color","color","rgb(0, 0, 0)",'#test_element','#test_element__sub');
+      runCategory("background","background","rgb(240, 15, 0)",'#test_element','#test_element__sub');
+      runCategory("margin","margin","0px 0px 5px",'#test_element','#test_element__sub');
+      runCategory("fontSize","font-size","28px",'#test_element','#test_element__sub');
+      runCategory("fontWeight","font-weight","500",'#test_element','#test_element__sub');
     });
-  };
-  
+  }
 }());

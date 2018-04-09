@@ -92,9 +92,9 @@ mocha.setup('bdd');
     
   /* mocha tests */
   standardDomProperties(describe,it,expect,spy);
-  standardDomFunction(describe,it,expect,spy);
-  standardDomAttributes(describe,it,expect,spy);
   standardDomStyles(describe,it,expect,spy);
+  standardDomAttributes(describe,it,expect,spy);
+  //standardDomFunction(describe,it,expect,spy);
   
   mocha.run();
 }(describe,it,chai.expect,sinon.spy));

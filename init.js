@@ -22,6 +22,10 @@
 
 /* TODO */
 
+/* custom style properties */
+
+/* add descriptor for attributes.setNamedItems, attributes.removeNamedItems */
+
 "use strict";
 
 window.pikantny = (function(){
@@ -152,6 +156,9 @@ window.pikantny = (function(){
     /* the name of the property */
     this.attr = v.attr;
     
+    /* in the case the attr is a style Example: `font-size` */
+    this.style = v.style;
+    
     /* passed arguments if the property was a method */
     this.arguments = v.arguments;
     
@@ -266,7 +273,7 @@ window.pikantny = (function(){
         __isMultipleKeys = (typeof key === 'object' && !!key.length);
     
     /* standard */
-    if(__isMultipleKeys)
+    if(__isMultipleKeys === true)
     {
       for(var x=0,len=key.length,__isUpdate,__listener,__key;x<len;x++)
       {
@@ -481,7 +488,7 @@ window.pikantny = (function(){
   /* REGION */
   
   /* runs the associated pre value set listeners */
-  function _setStandard(el, prop, val, oldValue, extensions, stop, args, action)
+  function _setStandard(el, prop, val, oldValue, extensions, stop, args, action, style)
   {
     /* create event */
     var e = new changeEvent({
@@ -493,7 +500,8 @@ window.pikantny = (function(){
         srcElement: el,
         stop: stop,
         arguments: args,
-        action: action
+        action: action,
+        style: style
     }),
     __extensions = extensions;
     
@@ -535,7 +543,7 @@ window.pikantny = (function(){
   }
   
   /* runs the associated post value set update listeners */
-  function _updateStandard(el, prop, val, oldValue, extensions, args, action)
+  function _updateStandard(el, prop, val, oldValue, extensions, args, action, style)
   {
     /* create event */
     var e = new changeEvent({
@@ -546,7 +554,8 @@ window.pikantny = (function(){
         target: el,
         srcElement: el,
         arguments: args,
-        action: action
+        action: action,
+        style: style
     }),
     __extensions = extensions;
     
@@ -963,7 +972,7 @@ window.pikantny = (function(){
   function descriptorSetAttribute(key,value)
   {
     /* closured descriptor, used methods and local var's for increased perf */
-    var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined),
+    var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : null),
         __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this)),
         __cssRules;
     
@@ -977,10 +986,10 @@ window.pikantny = (function(){
         {
           /* convert string to object */
           __cssRules = getCSSTextChanges(__oldValue,value);
-          for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+          for(var x=0,keys=Object.keys(__cssRules),len=keys.length,stylekey;x<len;x++)
           {
-            key = keys[x];
-            this.style[key] = __cssRules[key];
+            stylekey = keys[x];
+            this.style[stylekey] = __cssRules[stylekey];
           }
         }
 
@@ -1019,7 +1028,7 @@ window.pikantny = (function(){
   function descriptorRemoveAttribute(key)
   {
     /* closured descriptor, used methods and local var's for increased perf */
-    var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : undefined),
+    var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : null),
         __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this)),
         __cssRules;
     
@@ -1195,16 +1204,12 @@ window.pikantny = (function(){
         
     if(__CSSList__.indexOf(__truekey) !== -1)
     {
-      var __cssKey = getStyleKey(__truekey),
-          __cssInlineKey = getInlineKey(__truekey),
-          __hasUpdate = (key.indexOf('update') !== -1 ? 'update' : ''),
-          
-          /* in case both are the same */
-          __keys = (__CSSList__.indexOf(__cssKey) !== -1 && (__cssInlineKey !== __cssKey) ? [__cssKey+__hasUpdate,__cssInlineKey+__hasUpdate] : __cssInlineKey+__hasUpdate);
-      
+      var __cssInlineKey = getInlineKey(__truekey),
+          __cssKey = getStyleKey(__truekey),
+          __hasUpdate = (key.indexOf('update') !== -1 ? 'update' : '');
       
       processStyleEvent(__element,__cssInlineKey,__cssKey);
-      attachAttrEvent(__element,__keys,func);
+      attachAttrEvent(__element,(__cssInlineKey+__hasUpdate),func);
       return __cssInlineKey;
     }
     
@@ -1462,7 +1467,6 @@ window.pikantny = (function(){
         __set = _setStandard,
         __update = _updateStandard,
         __extensions = {},
-        __StandardExists = (__CSSList__.indexOf(__keyStyle) !== -1 && __keyInline !== __keyStyle),
         __oldValue = __proto[__keyInline],
         __value = __proto[__keyInline];
     
@@ -1479,30 +1483,26 @@ window.pikantny = (function(){
       __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
 
       /* run pre value listeners for both inline key and css style key */
-      if(__set(__element,__keyInline,v,__oldValue,__extensions,__extensions.stop) === true)
+      if(__set(__element,__keyInline,v,__oldValue,__extensions,__extensions.stop,undefined,undefined,__keyStyle) === true)
       {
-        if(__StandardExists === false || __set(__element,__keyStyle,v,__oldValue,__extensions,__extensions.stop) === true)
+        __value = v;
+        if(typeof v === 'string' && v.length === 0)
         {
-          __value = v;
-          if(typeof v === 'string' && v.length === 0)
-          {
-            /* inline style helps dif whether the setProperty method was ran or the inline style was changed */
-            __extensions.inlinestyle = true;
-            __removeProperty.call(__proto,__keyStyle);
-          }
-          else
-          {
-            /* inline style helps dif whether the setProperty method was ran or the inline style was changed */
-            __extensions.inlinestyle = true;
-            __setProperty.call(__proto,__keyStyle,v);
-          }
+          /* inline style helps dif whether the setProperty method was ran or the inline style was changed */
+          __extensions.inlinestyle = true;
+          __removeProperty.call(__proto,__keyStyle);
+        }
+        else
+        {
+          /* inline style helps dif whether the setProperty method was ran or the inline style was changed */
+          __extensions.inlinestyle = true;
+          __setProperty.call(__proto,__keyStyle,v);
+        }
 
 
-          if(__extensions.stop === undefined)
-          {
-            __update(__element,__keyInline,v,__oldValue,__extensions);
-            if(__StandardExists === true) __update(__element,__keyStyle,v,__oldValue,__extensions);
-          }
+        if(__extensions.stop === undefined)
+        {
+          __update(__element,__keyInline,v,__oldValue,__extensions,false,undefined,undefined,__keyStyle);
         }
       }
       __extensions.stop = undefined;
@@ -1539,7 +1539,7 @@ window.pikantny = (function(){
         for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
         {
           key = keys[x];
-          this.style[key] = __cssRules[key];
+          this[key] = __cssRules[key];
         }
         
         if(__extensions.stop === undefined)
@@ -1583,18 +1583,13 @@ window.pikantny = (function(){
       {
         __keyInline = __getInlineKey(key);
         __keyStyle = __getStyleKey(key);
-        __standardExists = (__cssList.indexOf(__keyStyle) !== -1 && __keyInline !== __keyStyle);
         
-        if(__set(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+        if(__set(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments,undefined,__keyStyle) === true)
         {
-          if(__standardExists === false || __set(__element,__keyStyle,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+          __action = __descSet.apply(this,arguments);
+          if(__extensions.stop === undefined) 
           {
-            __action = __descSet.apply(this,arguments);
-            if(__extensions.stop === undefined) 
-            {
-              __update(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments,__action);
-              if(__StandardExists === true) __update(__element,__keyStyle,undefined,undefined,__extensions,__extensions.stop,arguments,__action);
-            }
+            __update(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments,__action,__keyStyle);
           }
         }
         __extensions.stop = undefined;
@@ -1638,18 +1633,13 @@ window.pikantny = (function(){
       {
         __keyInline = __getInlineKey(key);
         __keyStyle = __getStyleKey(key);
-        __standardExists = (__cssList.indexOf(__keyStyle) !== -1 && __keyInline !== __keyStyle);
         
-        if(__set(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+        if(__set(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments,undefined,__keyStyle) === true)
         {
-          if(__standardExists === false || __set(__element,__keyStyle,undefined,undefined,__extensions,__extensions.stop,arguments) === true)
+          __action = __descSet.apply(this,arguments);
+          if(__extensions.stop === undefined) 
           {
-            __action = __descSet.apply(this,arguments);
-            if(__extensions.stop === undefined) 
-            {
-              __update(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments,__action);
-              if(__standardExists) __update(__element,__keyStyle,undefined,undefined,__extensions,__extensions.stop,arguments,__action);
-            }
+            __update(__element,__keyInline,undefined,undefined,__extensions,__extensions.stop,arguments,__action,__keyStyle);
           }
         }
         __extensions.stop = undefined;

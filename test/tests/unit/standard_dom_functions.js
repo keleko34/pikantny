@@ -1,6 +1,18 @@
 var standardDomFunction = (function(){
   
   return function(describe,it,expect,spy){
+      
+    
+      
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
       var parentElement = document.querySelector('.test_subject__element'),
           childElement = document.querySelector('.test_subject__element__child');
