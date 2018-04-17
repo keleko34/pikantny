@@ -1,685 +1,377 @@
 var standardDomFunction = (function(){
-  
-  return function(describe,it,expect,spy){
-      
+
+  return function(describe,it,expect,spy)
+  {
+    var methods = [
+          defaultPropertyFunctionality,
+          defaulPropertytListeners,
+          defaultBubbledListeners,
+          preValueSet,
+          postValueSet,
+          eventProperties,
+          defaultPrevented,
+          stopBubbledListeners,
+          stopImmediateListeners,
+          stopUpdateListeners,
+          bubbleFromNewElements
+        ];
     
-      
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-      var parentElement = document.querySelector('.test_subject__element'),
-          childElement = document.querySelector('.test_subject__element__child');
-    
-      describe("Standard dom functions", function(){
-        describe("appendChild", function(){
-            /* default functionality */
-            it("Should function normally appending an element",function(){
-               var inner = parentElement.innerHTML,
-                   test = document.createElement('input'),
-                   testAppend = parentElement.appendChild(test);
-
-               /* check if element exists */
-               expect(parentElement.querySelector('input')).to.not.equal(null);
-
-               /* check if method returned correct output */
-               expect(testAppend).to.equal(test);
-
-               /* set content back */
-               parentElement.innerHTML = inner;
-               expect(parentElement.innerHTML).to.equal(inner);
-            });
-
-            /* remove and add listeners */
-            it("Should be able to add and remove event listeners",function(){
-              var test = document.createElement('input'),
-                  inner = parentElement.innerHTML, 
-                  cb = spy();
-
-              parentElement.addEventListener('appendChild',cb);
-              parentElement.appendChild(test);
-              expect(cb.callCount).to.equal(1);
-              parentElement.removeEventListener('appendChild',cb);
-              parentElement.appendChild(test);
-              expect(cb.callCount).to.equal(1);
-
-              parentElement.innerHTML = inner;
-              expect(parentElement.innerHTML).to.equal(inner);
-            });
-
-            /* add standard listeners */
-            it("Should fire an event when a listener is attached before the method has been implemented",function(){
-                var test = document.createElement('input'),
-                    inner = parentElement.innerHTML,
-                    cb = spy();
-
-                 function testFunc(e)
-                 {
-                    expect(parentElement.querySelectorAll('input').length).to.equal(0);
-                    cb.apply(this,arguments);
-                    parentElement.removeEventListener('appendChild',testFunc);
-                 }
-
-                 parentElement.addEventListener('appendChild',testFunc);
-                 parentElement.appendChild(test);
-
-                 expect(cb.callCount).to.equal(1);
-                 parentElement.innerHTML = inner;
-                 expect(parentElement.innerHTML).to.equal(inner);
-            });
-
-            /* add update listeners */
-            it("Should fire an update event after the method has been implemented",function(){
-                var test = document.createElement('input'),
-                    inner = parentElement.innerHTML,
-                    cb = spy();
-
-                 function testFunc(e)
-                 {
-                    expect(parentElement.querySelectorAll('input').length).to.equal(1);
-                    cb.apply(this,arguments);
-                    parentElement.innerHTML = inner;
-                 }
-
-                 parentElement.addEventListener('appendChildupdate',testFunc);
-                 parentElement.appendChild(test);
-                 parentElement.removeEventListener('appendChildupdate',testFunc);
-                 expect(cb.callCount).to.equal(1);
-            });
-
-            /* event object */
-            it("Should contain all standard Event() properties and the new: arguments, method, stopped, stop in the event object",function(){
-              var test = document.createElement('input'),
-                  inner = parentElement.innerHTML;
-
-              function testFunc(e)
-              {
-                 expect(e.arguments).to.not.equal(undefined);
-                 expect(e.attr).to.not.equal(undefined);
-                 expect(e.stopped).to.not.equal(undefined);
-                 expect(e.stop).to.not.equal(undefined);
-                 expect(typeof e.arguments[0]).to.equal('object');
-                 expect(e.arguments[0] instanceof HTMLElement).to.equal(true);
-              }
-
-              parentElement.addEventListener('appendChild',testFunc);
-              parentElement.appendChild(test);
-              parentElement.removeEventListener('appendChild',testFunc);
-              parentElement.innerHTML = inner;
-            });
-
-            /* preventDefault */
-            it("Should prevent the method from being implemented when event.preventDefault(); is called",function(){
-                var test = document.createElement('input'),
-                    inner = parentElement.innerHTML,
-                    cb = spy();
-
-                function testFunc(e)
-                {
-                   e.preventDefault();
-                   cb.apply(this,arguments);
-                }
-
-                parentElement.addEventListener('appendChild',testFunc);
-                parentElement.appendChild(test);
-                parentElement.removeEventListener('appendChild',testFunc);
-                expect(cb.callCount).to.equal(1);
-                expect(parentElement.querySelectorAll('input').length).to.equal(0);
-
-                parentElement.innerHTML = inner;
-            });
-
-            /* stopPropogation */
-            it("Should prevent bubbling when event.stopPropogation(); is called",function(){
-                var test = document.createElement('input'),
-                    inner = parentElement.innerHTML,
-                    cbChild = spy(),
-                    cbParent = spy();
-
-                function testChildFunc(e)
-                {
-                    e.stopPropagation();
-
-                    expect(childElement.querySelector('input')).to.equal(null);
-                    cbChild.apply(this,arguments);
-                }
-
-                childElement.addEventListener('appendChild',testChildFunc);
-                parentElement.addEventListener('appendChild',cbParent);
-
-                childElement.appendChild(test);
-                childElement.removeEventListener('appendChild',testChildFunc);
-                parentElement.removeEventListener('appendChild',cbParent);
-                expect(cbChild.callCount).to.equal(1);
-                expect(cbParent.callCount).to.equal(0);
-
-                parentElement.innerHTML = inner;
-            });
-
-            /* stopImmediatePropogation */
-            it("Should prevent any further events from firing when event.stopImmediatePropogation(); is called",function(){
-                var test = document.createElement('input'),
-                    inner = parentElement.innerHTML,
-                    cb = spy(),
-                    cbSec = spy();
-                function testFunc(e)
-                {
-                   e.stopImmediatePropagation();
-                   cb.apply(this,arguments);
-                }
-
-                parentElement.addEventListener('appendChild',testFunc);
-                parentElement.addEventListener('appendChild',cbSec);
-
-                parentElement.appendChild(test);
-
-                expect(cb.callCount).to.equal(1);
-                expect(cbSec.callCount).to.equal(0);
-
-                parentElement.innerHTML = inner;
-                parentElement.removeEventListener('appendChild',testFunc);
-                parentElement.removeEventListener('appendChild',cbSec);
-            });
-
-            /* stopped */
-            it("Should not fire a update listener if either element.stop(); or event.stop(); have been called prior execution",function(){
-              var test = document.createElement('input'),
-                  inner = parentElement.innerHTML,
-                  cb = spy(),
-                  cbSec = spy(),
-                  count = 0;
-
-                 function testFunc(e)
-                 {
-                     count++;
-                     if(count === 2) e.stop();
-                     cb.apply(this,arguments);
-                     if(count < 3) expect(e.stopped).to.equal(true);
-                     if(count === 3)
-                     {
-                         parentElement.removeEventListener('appendChild',testFunc);
-                         parentElement.removeEventListener('appendChildupdate',cbSec);
-                     }
-                 }
-
-                 parentElement.addEventListener('appendChild',testFunc);
-                 parentElement.addEventListener('appendChildupdate',cbSec);
-
-                 parentElement.stop();
-                 parentElement.appendChild(test);
-                 expect(cb.callCount).to.equal(1);
-                 expect(cbSec.callCount).to.equal(0);
-
-                 parentElement.appendChild(test);
-                 expect(cb.callCount).to.equal(2);
-                 expect(cbSec.callCount).to.equal(0);
-
-                 parentElement.innerHTML = inner;
-            });
-        });
-
-        describe("addEventListener", function(){
-          /* default functionality */
-            it("Should function normally adding and removing a default listener",function(){
-                var cb = spy();
-
-                parentElement.addEventListener('click',cb);
-
-                parentElement.dispatchEvent(new MouseEvent('click'));
-
-                expect(cb.callCount).to.equal(1);
-                parentElement.removeEventListener('click',cb);
-
-                parentElement.dispatchEvent(new MouseEvent('click'));
-                expect(cb.callCount).to.equal(1);
-            });
-
-            /* remove and add listeners */
-            it("Should be able to add and remove event listeners",function(){
-              var cb = spy(),
-                  cbSec = spy(),
-                  cbthird = spy();
-
-              parentElement.addEventListener('addEventListener',cb);
-
-              parentElement.addEventListener('click',cbSec);
-
-              expect(cb.callCount).to.equal(1);
-
-              parentElement.removeEventListener('addEventListener',cb);
-              parentElement.addEventListener('click',cbthird);
-
-              expect(cb.callCount).to.equal(1);
-
-              parentElement.removeEventListener('click',cbSec);
-              parentElement.removeEventListener('click',cbthird);
-            });
-
-            /* add standard listeners */
-            it("Should fire an event when a listener is attached before the method has been implemented",function(){
-                var cb = spy(),
-                    cbSec = spy();
-                
-                function click()
-                {
-                  cbSec.apply(this,arguments);
-                }
-              
-                function testFunc(e)
-                {
-                  cb.apply(this,arguments);
-                  parentElement.removeEventListener('addEventListener',testFunc);
-                }
-
-                parentElement.addEventListener('addEventListener',testFunc);
-                parentElement.addEventListener('click',click);
-                parentElement.dispatchEvent(new MouseEvent('click'));
-                parentElement.removeEventListener('click',click);
-                expect(cb.callCount).to.equal(1);
-                expect(cbSec.callCount).to.equal(1);
-            });
-
-            /* add update listeners */
-            it("Should fire an update event after the method has been implemented",function(){
-                var cb = spy(),
-                    cbSec = spy();
-                
-                function click()
-                {
-                  cbSec.apply(this,arguments);
-                }
-              
-                function testFunc(e)
-                {
-                  cb.apply(this,arguments);
-                  parentElement.dispatchEvent(new MouseEvent('click'));
-                  parentElement.removeEventListener('addEventListenerupdate',testFunc);
-                  parentElement.removeEventListener('click',click);
-                }
-
-                parentElement.addEventListener('addEventListenerupdate',testFunc);
-                parentElement.addEventListener('click',click);
-
-                expect(cb.callCount).to.equal(1);
-                expect(cbSec.callCount).to.equal(1);
-            });
-
-            /* event object */
-            it("Should contain all standard Event() properties and the new: arguments, method, stopped, stop in the event object",function(){
-              var cb = spy(),
-                  cbSec = spy();
-
-              function testFunc(e)
-              {
-                  expect(e.arguments).to.not.equal(undefined);
-                  expect(e.attr).to.not.equal(undefined);
-                  expect(e.stopped).to.not.equal(undefined);
-                  expect(e.stop).to.not.equal(undefined);
-                  expect(typeof e.arguments[0]).to.equal('string');
-                  expect(typeof e.arguments[1]).to.equal('function');
-                  parentElement.removeEventListener('addEventListener',testFunc);
-                  parentElement.removeEventListener('click',cbSec);
-              }
-
-              parentElement.addEventListener('addEventListener',testFunc);
-              parentElement.addEventListener('click',cbSec);
-            });
-
-            /* preventDefault */
-            it("Should prevent the method from being implemented when event.preventDefault(); is called",function(){
-                var cb = spy(),
-                    cbSec = spy();
-
-                function testFunc(e)
-                {
-                    e.preventDefault();
-                    cb.apply(this,arguments);
-                    parentElement.dispatchEvent(new MouseEvent('click'));
-                    expect(cbSec.callCount).to.equal(0);
-                }
-
-                parentElement.addEventListener('addEventListener',testFunc);
-                parentElement.addEventListener('click',cbSec);
-
-                expect(cb.callCount).to.equal(1);
-
-                parentElement.removeEventListener('addEventListener',testFunc);
-                parentElement.removeEventListener('click',cbSec);
-            });
-
-            /* stopPropogation */
-            it("Should prevent bubbling when event.stopPropogation(); is called",function(){
-                var cbChild = spy(),
-                    cbParent = spy();
-
-                function testChildFunc(e)
-                {
-                    e.stopPropagation();
-                }
-
-                childElement.addEventListener('addEventListener',testChildFunc);
-                parentElement.addEventListener('addEventListener',cbParent);
-
-                childElement.addEventListener('click',cbChild);
-
-                expect(cbParent.callCount).to.equal(0);
-
-                childElement.removeEventListener('addEventListener',testChildFunc);
-                parentElement.removeEventListener('addEventListener',cbParent);
-
-                childElement.removeEventListener('click',cbChild);
-            });
-
-            /* stopImmediatePropogation */
-            it("Should prevent any further events from firing when event.stopImmediatePropogation(); is called",function(){
-                var cb = spy(),
-                    cbSec = spy(),
-                    cbThird = spy();
-
-                function testFunc(e)
-                {
-                   e.stopImmediatePropagation();
-                   cb.apply(this,arguments);
-                }
-
-                parentElement.addEventListener('addEventListener',testFunc);
-                parentElement.addEventListener('addEventListener',cbSec);
-
-                parentElement.addEventListener('click',cbThird);
-
-                expect(cb.callCount).to.equal(2);
-                expect(cbSec.callCount).to.equal(0);
-
-                parentElement.removeEventListener('addEventListener',testFunc);
-                parentElement.removeEventListener('addEventListener',cbSec);
-
-                parentElement.removeEventListener('click',cbThird);
-            });
-
-            /* stopped */
-            it("Should not fire a update listener if either element.stop(); or event.stop(); have been called prior execution",function(){
-              var cb = spy(),
-                  cbSec = spy(),
-                  cbThird = spy(),
-                  cbFourth = spy(),
-                  count = 0;
-
-              function testFunc(e)
-              {
-                 count++;
-                 if(count === 3) e.stop();
-                 cb.apply(this,arguments);
-                 if(count < 4 && count !== 1) expect(e.stopped).to.equal(true);
-              }
-
-              parentElement.addEventListener('addEventListener',testFunc);
-              parentElement.addEventListener('addEventListenerupdate',cbSec);
-
-              parentElement.stop();
-              parentElement.addEventListener('click',cbThird);
-
-              parentElement.addEventListener('click',cbFourth);
-
-              expect(cb.callCount).to.equal(3);
-              expect(cbSec.callCount).to.equal(0);
-
-              parentElement.removeEventListener('addEventListener',testFunc);
-              parentElement.removeEventListener('addEventListenerupdate',cbSec);
-              parentElement.removeEventListener('click',cbThird);
-              parentElement.removeEventListener('click',cbFourth);
-            });
-        });
-
-        describe("setAttribute", function(){
-            /* default functionality */
-            it("Should function normally setting an attribute",function(){
-                 var inner = parentElement.className,
-                     check = 'test_subject__element',
-                     test = "test_subject__element__test",
-                     testSetAttribute = parentElement.setAttribute('class',test);
-
-                 /* check if element exists */
-                 expect(parentElement.className).to.not.equal('test_subject__element');
-
-                 /* check if method returned correct output */
-                 expect(testSetAttribute).to.equal(undefined);
-
-                 /* set content back */
-                 parentElement.setAttribute('class',check);
-                 expect(parentElement.className).to.equal(check);
-              });
-
-            /* remove and add listeners */
-            it("Should be able to add and remove event listeners",function(){
-               var test = "test_subject__element__test",
-                   inner = parentElement.className, 
-                   cb = spy();
-               parentElement.addEventListener('setAttribute',cb);
-               parentElement.setAttribute('class',test);
-               expect(cb.callCount).to.equal(1);
-               parentElement.removeEventListener('setAttribute',cb);
-               parentElement.setAttribute('class',inner);
-               expect(cb.callCount).to.equal(1);
-           });
-
-            /* add standard listeners */
-            it("Should fire an event when a listener is attached before the function has been ran",function(){
-                   var test = "test_subject__element__test",
-                       inner = parentElement.className,
-                       cb = spy(),
-                       count = 0;
-
-                   function testFunc(e)
-                   {
-                       count++;
-                       expect(parentElement.className).to.equal((count === 1 ? inner : test));
-                       cb.apply(this,arguments);
-                       if(count === 2) parentElement.removeEventListener('setAttribute',testFunc);
-                   }
-
-                   parentElement.addEventListener('setAttribute',testFunc);
-                   parentElement.setAttribute('class',test);
-
-                   expect(cb.callCount).to.equal(1);
-
-                   parentElement.setAttribute('class',inner);
-
-                   expect(cb.callCount).to.equal(2);
-               });
-
-            /* add update listeners */
-            it("Should fire an update event after the function has been ran",function(){
-                  var test = "test_subject__element__test",
-                      inner = parentElement.className,
-                      cb = spy(),
-                      count = 0;
-
-                 function testFunc(e)
-                 {
-                     count++;
-                     expect(parentElement.className).to.equal((count === 1 ? test : inner));
-                     cb.apply(this,arguments);
-                     if(count === 2) parentElement.removeEventListener('setAttributeupdate',testFunc);
-                 }
-
-                 parentElement.addEventListener('setAttributeupdate',testFunc);
-                 parentElement.setAttribute('class',test);
-
-                 expect(cb.callCount).to.equal(1);
-
-                 parentElement.setAttribute('class',inner);
-
-                 expect(cb.callCount).to.equal(2);
-             });
-
-            /* event object */
-            it("Should contain all standard Event() properties and the new: arguments, method, stopped, stop in the event object",function(){
-               var test = "test_subject__element__test",
-                   inner = parentElement.className;
-
-               function testFunc(e)
-               {
-                  expect(e.arguments).to.not.equal(undefined);
-                  expect(e.attr).to.not.equal(undefined);
-                  expect(e.stopped).to.not.equal(undefined);
-                  expect(e.stop).to.not.equal(undefined);
-                  expect(typeof e.arguments[0]).to.equal('string');
-                  parentElement.removeEventListener('setAttribute',testFunc);
-               }
-
-               parentElement.addEventListener('setAttribute',testFunc);
-               parentElement.setAttribute('class',test);
-               parentElement.setAttribute('class',inner);
-           });
-
-            /* preventDefault */
-            it("Should prevent the function from being ran when event.preventDefault(); is called",function(){
-               var test = "test_subject__element__test",
-                   inner = parentElement.className,
-                   cb = spy(),
-                   count = 0;
-
-               function testFunc(e)
-               {
-                   e.preventDefault();
-
-                   count++;
-                   expect(parentElement.className).to.equal(inner);
-                   cb.apply(this,arguments);
-                   if(count === 2) parentElement.removeEventListener('setAttribute',testFunc);
-               }
-
-               parentElement.addEventListener('setAttribute',testFunc);
-               parentElement.setAttribute('class',test);
-
-               expect(cb.callCount).to.equal(1);
-               expect(parentElement.className).to.equal(inner);
-
-               parentElement.setAttribute('class',inner);
-
-               expect(cb.callCount).to.equal(2);
-               expect(parentElement.className).to.equal(inner);
-            });
-
-            /* stopPropogation */
-            it("Should prevent bubbling when event.stopPropogation(); is called",function(){
-               var test = "test_subject__element__test",
-                   innerChild = childElement.className,
-                   innerParent = parentElement.className,
-                   cbChild = spy(),
-                   cbParent = spy(),
-                   countChild = 0;
-
-               function testChildFunc(e)
-               {
-                   e.stopPropagation();
-                   countChild++;
-                   expect(childElement.className).to.equal((countChild === 1 ? innerChild : test));
-                   cbChild.apply(this,arguments);
-                   if(countChild === 2)
-                   {
-                       childElement.removeEventListener('setAttribute',testChildFunc);
-                       parentElement.removeEventListener('setAttribute',cbParent);
-                   }
-               }
-
-               childElement.addEventListener('setAttribute',testChildFunc);
-               parentElement.addEventListener('setAttribute',cbParent);
-
-               childElement.setAttribute('class',test);
-
-               expect(cbChild.callCount).to.equal(1);
-               expect(cbParent.callCount).to.equal(0);
-
-               childElement.setAttribute('class',innerChild);
-
-               expect(cbChild.callCount).to.equal(2);
-               expect(cbParent.callCount).to.equal(0);
-           });
-
-            /* stopImmediatePropogation */
-            it("Should prevent any further events from firing when event.stopImmediatePropogation(); is called",function(){
-               var test = "test_subject__element__test",
-                   inner = parentElement.className,
-                   cb = spy(),
-                   cbSec = spy(),
-                   count = 0;
-
-               function testFunc(e)
-               {
-                   e.stopImmediatePropagation();
-                   count++;
-                   expect(parentElement.className).to.equal((count === 1 ? inner : test));
-                   cb.apply(this,arguments);
-                   if(count === 2)
-                   {
-                       parentElement.removeEventListener('setAttribute',testFunc);
-                       parentElement.removeEventListener('setAttribute',cbSec);
-                   }
-               }
-
-               parentElement.addEventListener('setAttribute',testFunc);
-               parentElement.addEventListener('setAttribute',cbSec);
-
-               parentElement.setAttribute('class',test);
-
-               expect(cb.callCount).to.equal(1);
-               expect(cbSec.callCount).to.equal(0);
-
-               parentElement.setAttribute('class',inner);
-
-               expect(cb.callCount).to.equal(2);
-               expect(cbSec.callCount).to.equal(0);
-           });
-
-            /* stopped */
-            it("Should not fire a update listener if either element.stop(); or event.stop(); have been called",function(){
-               var test = "test_subject__element__test",
-                   test2 = "test_subject__element__test__sec",
-                   inner = parentElement.className,
-                   cb = spy(),
-                   cbSec = spy(),
-                   count = 0;
-
-               function testFunc(e)
-               {
-                   count++;
-                   if(count === 2) e.stop();
-                   cb.apply(this,arguments);
-                   if(count < 3) expect(e.stopped).to.equal(true);
-                   if(count === 4)
-                   {
-                       parentElement.removeEventListener('setAttribute',testFunc);
-                       parentElement.removeEventListener('setAttributeupdate',cbSec);
-                   }
-               }
-
-               parentElement.addEventListener('setAttribute',testFunc);
-               parentElement.addEventListener('setAttributeupdate',cbSec);
-
-               parentElement.stop();
-               parentElement.setAttribute('class',test);
-               expect(cb.callCount).to.equal(1);
-               expect(cbSec.callCount).to.equal(0);
-
-               parentElement.setAttribute('class',test2);
-               expect(cb.callCount).to.equal(2);
-               expect(cbSec.callCount).to.equal(0);
-
-               parentElement.setAttribute('class',"");
-               expect(cb.callCount).to.equal(3);
-               expect(cbSec.callCount).to.equal(1);
-
-               parentElement.setAttribute('class',inner);
-           });
-        });
+    function runCategory(key,args,parent,child,pre,post)
+    {
+      describe(key+':', function(){
+        for(var x=0,len=methods.length;x<len;x++)
+        {
+          methods[x](key,args,parent,child,pre,post);
+        }
       });
-  };
-  
+    }
+
+    /* INDIVIDUAL TESTS */
+    /* REGION */
+    
+    function defaultPropertyFunctionality(key,args,node,sub_node,pre,post)
+    {
+      it("Functionality of "+key+" method should run as originally intended",function(done){
+        var __node = document.querySelector(node),
+            __args = args;
+        
+        expect(pre(node,undefined,key)).to.equal(true);
+        __node[key].apply(__node,__args);
+        expect(post(node,undefined,key)).to.equal(true);
+        done();
+      });
+    }
+    
+    function defaulPropertytListeners(key,args,node,sub_node,pre,post)
+    {
+      it("Listeners should add, remove and fire upon update",function(done){
+        var __node = document.querySelector(node),
+            __args = args,
+            __cb = spy();
+
+        expect(pre(node,undefined,key)).to.equal(true);
+        __node.addEventListener(key,__cb);
+        __node[key].apply(__node,__args);
+        expect(__cb.callCount).to.equal(1);
+
+        __node.removeEventListener(key,__cb);
+        __node[key].apply(__node,__args);
+        expect(__cb.callCount).to.equal(1);
+        
+        expect(post(node,undefined,key)).to.equal(true);
+        done();
+      });
+    }
+    
+    function defaultBubbledListeners(key,args,node,sub_node,pre,post)
+    {
+      it("Listeners should fire upon update of a child element in a bubbled manner",function(done){
+        var __node = document.querySelector(node),
+            __sub_node = document.querySelector(sub_node),
+            __args = args,
+            __cb = spy();
+        
+        expect(pre(node,sub_node,key)).to.equal(true);
+        __node.addEventListener(key,__cb);
+        __sub_node[key].apply(__sub_node,__args);
+        expect(__cb.callCount).to.equal(1);
+
+        __node.removeEventListener(key,__cb);
+        expect(post(node,sub_node,key)).to.equal(true);
+        done();
+      })
+    }
+    
+    function preValueSet(key,args,node,sub_node,pre,post)
+    {
+      it("An event should fire prior to the method being ran",function(done){
+        var __node = document.querySelector(node),
+            __args = args;
+        
+        function CV(e)
+        {
+          expect(post(node,undefined,key,true)).to.equal(true);
+        }
+        
+        expect(pre(node,undefined,key)).to.equal(true);
+        __node.addEventListener(key,CV);
+        __node[key].apply(__node,__args);
+
+        __node.removeEventListener(key,CV);
+        done();
+      });
+    }
+    
+    function postValueSet(key,args,node,sub_node,pre,post)
+    {
+      it("An update event should fire after the value has been set",function(done){
+        var __node = document.querySelector(node),
+            __args = args;
+        
+        function CV(e)
+        {
+          expect(post(node,undefined,key)).to.equal(true);
+        }
+        
+        expect(pre(node,undefined,key)).to.equal(true);
+        
+        __node.addEventListener(key+'update',CV);
+        __node[key].apply(__node,__args);
+
+        __node.removeEventListener(key+'update',CV);
+        done();
+      });
+    }
+    
+    function eventProperties(key,args,node,sub_node,pre,post)
+    {
+      it("All event properties should exist on the passed event object",function(done){
+        var __node = document.querySelector(node),
+            __args = args;
+        
+        function CV(e)
+        {
+          expect(e.arguments).to.equal(__args);
+          expect(e.cancelable).to.equal(true);
+          expect(e.defaultPrevented).to.equal(false);
+          expect(e.bubbles).to.equal(true);
+          expect(e.attr).to.equal(key);
+          expect(e.target).to.equal(__node);
+          expect(e.stopped).to.equal(false);
+          expect(typeof e.preventDefault).to.equal('function');
+          expect(typeof e.stopPropagation).to.equal('function');
+          expect(typeof e.stopImmediatePropagation).to.equal('function');
+          expect(typeof e.stop).to.equal('function');
+        }
+        
+        expect(pre(node,undefined,key));
+        
+        __node.addEventListener(key,CV);
+        __node[key].apply(__node,__args);
+
+        __node.removeEventListener(key,CV);
+        expect(post(node,undefined,key)).to.equal(true);
+        done();
+      });
+    }
+    
+    function defaultPrevented(key,args,node,sub_node,pre,post)
+    {
+      it("A value should not be set if event.preventDefault is called",function(done){
+        var __node = document.querySelector(node),
+            __args = args;
+        
+        function CV(e)
+        {
+          e.preventDefault();
+          expect(e.defaultPrevented).to.equal(true);
+        }
+        
+        expect(pre(node,undefined,key)).to.equal(true);
+        
+        __node.addEventListener(key,CV);
+        __node[key].apply(__node,__args);
+        
+        __node.removeEventListener(key,CV);
+        expect(post(node,undefined,key,true)).to.equal(true);
+        done();
+      });
+    }
+    
+    function stopBubbledListeners(key,args,node,sub_node,pre,post)
+    {
+      it("Bubbled Parent listeners should not be called if event.stopPropogation is called",function(done){
+        var __node = document.querySelector(node),
+            __sub_node = document.querySelector(sub_node),
+            __args = args,
+            __cb = spy();
+        
+        function CV(e)
+        {
+          e.stopPropagation();
+          expect(e.bubbles).to.equal(false);
+        }
+        
+        expect(pre(node,sub_node,key)).to.equal(true);
+        
+        __sub_node.addEventListener(key,CV);
+        __node.addEventListener(key,__cb);
+        __sub_node[key].apply(__sub_node,__args);
+        expect(__cb.callCount).to.equal(0);
+        
+        __sub_node.removeEventListener(key,CV);
+        __node.removeEventListener(key,__cb);
+        expect(post(node,sub_node,key)).to.equal(true);
+        done();
+      })
+    }
+    
+    function stopImmediateListeners(key,args,node,sub_node,pre,post)
+    {
+      it("After event.stopImmediatePropogation is called no other listeners should be fired",function(done){
+        var __node = document.querySelector(node),
+            __args = args,
+            __cb = spy();
+        
+        function CV(e)
+        {
+          e.stopImmediatePropagation();
+          expect(e.bubbles).to.equal(false);
+        }
+        
+        expect(pre(node,undefined,key)).to.equal(true);
+        
+        __node.addEventListener(key,CV);
+        __node.addEventListener(key,__cb);
+        __node[key].apply(__node,__args);
+        expect(__cb.callCount).to.equal(0);
+        
+        __node.removeEventListener(key,CV);
+        __node.removeEventListener(key,__cb);
+        expect(post(node,undefined,key)).to.equal(true);
+        done();
+      });
+    }
+    
+    function stopUpdateListeners(key,args,node,sub_node,pre,post)
+    {
+      it("After event.stop is called update listeners should not be fired",function(done){
+        var __node = document.querySelector(node),
+            __args = args,
+            __cb = spy();
+        
+        function CV(e)
+        {
+          e.stop();
+          expect(e.stopped).to.equal(true);
+        }
+        
+        expect(pre(node,undefined,key)).to.equal(true);
+        
+        __node.addEventListener(key,CV);
+        __node.addEventListener(key+'update',__cb);
+        __node[key].apply(__node,__args)
+        expect(__cb.callCount).to.equal(0);
+        
+        __node.removeEventListener(key,CV);
+        __node.removeEventListener(key+'update',__cb);
+        expect(post(node,undefined,key)).to.equal(true);
+        done();
+      });
+    }
+    
+    function bubbleFromNewElements(key,args,node,sub_node,pre,post)
+    {
+      it("When a new element is added it should also bubble the event",function(done){
+        var __node = document.querySelector(node),
+            __sub_node = document.createElement('div'),
+            __sub_node2 = document.createElement('div'),
+            __prehtml = __node.innerHTML,
+            __args = args,
+            __cb = spy();
+        
+        expect(pre(node,undefined,key)).to.equal(true);
+        
+        __node.addEventListener(key,__cb);
+        __node.appendChild(__sub_node);
+        __sub_node[key].apply(__sub_node,__args);
+        expect(__cb.callCount).to.equal(1);
+        
+        __node.insertBefore(__sub_node2,__sub_node);
+        __sub_node2[key].apply(__sub_node2,__args);
+        expect(__cb.callCount).to.equal(2);
+        
+        __node.removeEventListener(key,__cb);
+        __node.innerHTML = __prehtml;
+        done();
+      });
+    }
+    
+    /* ENDREGION */
+    
+    describe("STANDARD DOM FUNCTIONS:",function(){
+      
+      var __oldValue = "",
+          __attr = 'class',
+          __listener = 'click',
+          __callback = spy()
+      
+      function func(e)
+      {
+        expect(e.type).to.equal('click');
+        __callback();
+      }
+      
+      function pre(node,sub_node,key)
+      {
+        var __node = document.querySelector(node),
+            __sub_node = (sub_node ? document.querySelector(sub_node) : null),
+            __currentNode = (__sub_node ? __sub_node : __node);
+        
+        switch(key)
+        {
+          case 'appendChild':
+            __oldValue = __currentNode.innerHTML;
+          break;
+          case 'setAttribute':
+            __oldValue = __currentNode.getAttribute(__attr);
+          break;
+        }
+        return true;
+      }
+      
+      function post(node,sub_node,key,pre)
+      {
+        var __node = document.querySelector(node),
+            __sub_node = (sub_node ? document.querySelector(sub_node) : null),
+            __currentNode = (__sub_node ? __sub_node : __node);
+        
+        switch(key)
+        {
+          case 'appendChild':
+            if(pre)
+            {
+              expect(__currentNode.innerHTML).to.equal(__oldValue);
+            }
+            else
+            {
+              expect(__currentNode.innerHTML).to.not.equal(__oldValue);
+            }
+            
+            __currentNode.innerHTML = __oldValue;
+            expect(__currentNode.innerHTML).to.equal(__oldValue);
+          break;
+          case 'addEventListener':
+            var __event = new Event(__listener);
+            __currentNode.dispatchEvent(__event);
+            
+            expect(__callback.callCount).to.equal((pre ? 0 : 1));
+            __currentNode.removeEventListener(__listener,func);
+            
+            __callback.callCount = 0;
+            __currentNode.dispatchEvent(__event);
+            expect(__callback.callCount).to.equal(0);
+          break;
+          case 'setAttribute':
+            if(pre)
+            {
+              expect(__currentNode.getAttribute(__attr)).to.equal(__oldValue);
+            }
+            else
+            {
+              expect(__currentNode.getAttribute(__attr)).to.not.equal(__oldValue);
+            }
+            
+            __currentNode[__oldValue !== null ? 'setAttribute' : 'removeAttribute'](__attr,__oldValue);
+            expect(__currentNode.getAttribute(__attr)).to.equal(__oldValue);
+          break;
+        }
+        return true;
+      }
+      
+      runCategory("appendChild",[document.createElement('div')],'#test_element','#test_element__sub',pre,post);
+      runCategory("addEventListener",['click',func],'#test_element','#test_element__sub',pre,post);
+      runCategory("setAttribute",['class','test'],'#test_element','#test_element__sub',pre,post);
+    });
+  }
 }());
