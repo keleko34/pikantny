@@ -29,6 +29,7 @@
     "benchmark": "^2.1.4",
     "chai": "^4.1.2",
     "connect": "^3.6.5",
+    "google-closure-compiler-js": "^20180402.0.0",
     "lodash": "^4.17.4",
     "mocha": "^4.0.1",
     "open": "0.0.5",
