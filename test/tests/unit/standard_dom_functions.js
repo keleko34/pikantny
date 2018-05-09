@@ -1,6 +1,6 @@
 var standardDomFunction = (function(){
 
-  return function(describe,it,expect,spy)
+  return function(describe,it,expect,spy,timer)
   {
     var methods = [
           defaultPropertyFunctionality,
@@ -19,6 +19,8 @@ var standardDomFunction = (function(){
     function runCategory(key,args,parent,child,pre,post)
     {
       describe(key+':', function(){
+        trackTestTime.call(this,key);
+        
         for(var x=0,len=methods.length;x<len;x++)
         {
           methods[x](key,args,parent,child,pre,post);
@@ -90,14 +92,14 @@ var standardDomFunction = (function(){
         
         function CV(e)
         {
+          __node.removeEventListener(key,CV);
           expect(post(node,undefined,key,true)).to.equal(true);
+          e.preventDefault();
         }
         
         expect(pre(node,undefined,key)).to.equal(true);
         __node.addEventListener(key,CV);
         __node[key].apply(__node,__args);
-
-        __node.removeEventListener(key,CV);
         done();
       });
     }
@@ -110,6 +112,7 @@ var standardDomFunction = (function(){
         
         function CV(e)
         {
+          __node.removeEventListener(key+'update',CV);
           expect(post(node,undefined,key)).to.equal(true);
         }
         
@@ -118,7 +121,6 @@ var standardDomFunction = (function(){
         __node.addEventListener(key+'update',CV);
         __node[key].apply(__node,__args);
 
-        __node.removeEventListener(key+'update',CV);
         done();
       });
     }
@@ -131,7 +133,7 @@ var standardDomFunction = (function(){
         
         function CV(e)
         {
-          expect(e.arguments).to.equal(__args);
+          expect(JSON.stringify([].slice.call(e.arguments))).to.equal(JSON.stringify(__args));
           expect(e.cancelable).to.equal(true);
           expect(e.defaultPrevented).to.equal(false);
           expect(e.bubbles).to.equal(true);
@@ -272,12 +274,13 @@ var standardDomFunction = (function(){
         
         expect(pre(node,undefined,key)).to.equal(true);
         
-        __node.addEventListener(key,__cb);
         __node.appendChild(__sub_node);
+        __node.insertBefore(__sub_node2,__sub_node);
+        
+        __node.addEventListener(key,__cb);
         __sub_node[key].apply(__sub_node,__args);
         expect(__cb.callCount).to.equal(1);
         
-        __node.insertBefore(__sub_node2,__sub_node);
         __sub_node2[key].apply(__sub_node2,__args);
         expect(__cb.callCount).to.equal(2);
         
@@ -371,7 +374,7 @@ var standardDomFunction = (function(){
       
       runCategory("appendChild",[document.createElement('div')],'#test_element','#test_element__sub',pre,post);
       runCategory("addEventListener",['click',func],'#test_element','#test_element__sub',pre,post);
-      runCategory("setAttribute",['class','test'],'#test_element','#test_element__sub',pre,post);
+      runCategory("setAttribute",['class','tester'],'#test_element','#test_element__sub',pre,post);
     });
   }
 }());

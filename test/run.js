@@ -9,8 +9,6 @@ connect.use('/',static(base, {'index': ['/test/index.html']}));
 
 connect.listen(8080);
 
-//open('http://localhost:8080');
-
 var stdin = process.stdin;
     stdin.setRawMode(true);
     stdin.resume();
