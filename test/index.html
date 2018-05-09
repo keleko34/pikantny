@@ -16,20 +16,41 @@
           <input id="test_input" class="test_subject__element__input" type="text" value="Input Element"/><br />
           <input id="test_checkbox" class="test_subject__element__checkbox" type="checkbox"/><br />
           <textarea id="test_textarea" class="test_subject__element__textarea">Textarea Element</textarea><br />
-          <select id="test_selection" class="test_subject__element__select"><br />
+          <select id="test_selection" class="test_subject__element__select">
             <option value="1">1</option>
             <option value="2">2</option>
-          </select>
+          </select><br />
       </div>
     </div>
     <div class="test">
-      <div class="section">Mocha</div>
-      <div id="mocha">Usability</div>
+      <div class="section">Unit Tests</div>
+      <div id="mocha"></div>
       <div id="messages"></div>
       <div id="fixtures"></div>
     </div>
     <div class="performance">
       <div class="section"><a href="#tasks">Benchmark Tests</a></div>
+      <iframe id="pikantny_performance"></iframe>
+      <script type="text/javascript">
+        var pikantnyFrame = document.getElementById('pikantny_performance'),
+            pikantnyDocument = pikantnyFrame.contentDocument || pikantnyFrame.contentWindow.document,
+            pikantnyWindow = pikantnyFrame.contentWindow || pikantnyFrame;
+            
+        pikantnyDocument.open();
+        pikantnyDocument.write('<html><head><\/head><body><div id="test"><\/div><input id="test_input" type="text" /><script type="text\/javascript" src="\/init.js"><\/script><\/body><\/html>');
+        pikantnyDocument.close();
+      </script>
+      <iframe id="KB_performance"></iframe>
+      <script type="text/javascript">
+        var KBFrame = document.querySelector('#KB_performance'),
+            KBDocument = KBFrame.contentDocument || KBFrame.contentWindow.document,
+            KBWindow = KBFrame.contentWindow || KBFrame;
+        
+        KBDocument.open();
+        KBDocument.write('<html><head><\/head><body><div id="test"><\/div><input id="test_input" type="text" /><script type="text\/javascript" src="\/test\/tests\/performance\/vendors\/KB.js"><\/script><script type="text\/javascript">var kb = CreateKB();kb.call();<\/script><\/body><\/html>');
+        KBDocument.close();
+        
+      </script>
       <div id="tasks"></div>
     </div>
     <style>

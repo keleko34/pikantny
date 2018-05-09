@@ -1,10 +1,10 @@
 var standardDomStyles = (function(){
-  return function(describe,it,expect,spy)
+  return function(describe,it,expect,spy,timer)
   {
     var methods = [
           defaultPropertyFunctionality,
           defaulPropertytListeners,
-          defaulStyletListeners,
+          defaulStyleListeners,
           defaultBubbledListeners,
           preValueSet,
           postValueSet,
@@ -22,6 +22,8 @@ var standardDomStyles = (function(){
     function runCategory(key,keyProper,value,parent,child)
     {
       describe(key+':', function(){
+        trackTestTime.call(this,key);
+        
         for(var x=0,len=methods.length;x<len;x++)
         {
           methods[x](key,keyProper,value,parent,child);
@@ -69,13 +71,13 @@ var standardDomStyles = (function(){
       });
     }
     
-    function defaulStyletListeners(key,keyProper,value,node)
+    function defaulStyleListeners(key,keyProper,value,node)
     {
       it("CSS style syntax listeners should fire upon update",function(done){
         var __node = document.querySelector(node),
             __oldValue = __node.style[key],
             __value = value,
-            __cb = spy();
+            __cb =  spy();
 
         __node.addEventListener(keyProper,__cb);
         __node.style[key] = __value;
@@ -368,10 +370,26 @@ var standardDomStyles = (function(){
     
     describe("STANDARD DOM STYLES:",function(){
       runCategory("color","color","rgb(0, 0, 0)",'#test_element','#test_element__sub');
-      runCategory("background","background","rgb(240, 15, 0)",'#test_element','#test_element__sub');
+      runCategory("backgroundColor","background-color","rgb(240, 15, 0)",'#test_element','#test_element__sub');
       runCategory("margin","margin","0px 0px 5px",'#test_element','#test_element__sub');
       runCategory("fontSize","font-size","28px",'#test_element','#test_element__sub');
       runCategory("fontWeight","font-weight","500",'#test_element','#test_element__sub');
     });
+    
+    /* browser specific 
+      -webkit-  Chrome all / Safari all
+      -moz-     Firefox all
+      -ms-      IE all */
+    
+    describe("BROWSER DOM STYLES:",function(){
+      runCategory("webkitPaddingStart","-webkit-padding-start","0px",'#test_element','#test_element__sub');
+      runCategory("mozPaddingStart","-moz-padding-start","0px",'#test_element','#test_element__sub');
+      runCategory("msPaddingStart","-ms-padding-start","0px",'#test_element','#test_element__sub');
+      
+      runCategory("webkitUserSelect","-webkit-user-select","text",'#test_element','#test_element__sub');
+      runCategory("mozUserSelect","-moz-user-select","text",'#test_element','#test_element__sub');
+      runCategory("msUserSelect","-ms-user-select","text",'#test_element','#test_element__sub');
+    });
+    
   }
 }());

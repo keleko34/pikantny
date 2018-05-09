@@ -1,4 +1,6 @@
-var standardDomProperties = (function(){
+/* NOT FINISHED */
+
+var standardDomHTML = (function(){
   return function(describe,it,expect,spy,timer)
   {
     var methods = [
@@ -13,6 +15,18 @@ var standardDomProperties = (function(){
           stopImmediateListeners,
           stopUpdateListeners,
           bubbleFromNewElements
+        ],
+        testMethods = [
+          'textContent',
+          'innerHTML',
+          'innerText',
+          'outerHTML',
+          'outerText',
+          'appendChild',
+          'removeChild',
+          'replaceChild',
+          'insertAdjacentHTML',
+          'insertBefore'
         ];
     
     function runCategory(key,value,parent,child)
@@ -29,24 +43,6 @@ var standardDomProperties = (function(){
 
     /* INDIVIDUAL TESTS */
     /* REGION */
-    
-    function defaultPropertyFunctionality(key,value,node)
-    {
-      it("Functionality of "+key+" should update as originally intended",function(done){
-        var __node = document.querySelector(node),
-            __oldValue = __node[key],
-            __value = value; 
-
-        /* insert new value */
-        __node[key] = __value;
-        expect(__node[key]).to.equal(__value);
-
-        /* reset value */
-        __node[key] = __oldValue;
-        expect(__node[key]).to.equal(__oldValue);
-        done();
-      });
-    }
     
     function defaulPropertytListeners(key,value,node)
     {

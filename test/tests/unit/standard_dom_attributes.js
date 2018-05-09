@@ -1,5 +1,5 @@
 var standardDomAttributes = (function(){
-  return function(describe,it,expect,spy)
+  return function(describe,it,expect,spy,timer)
   {
     var methods = [
           defaultPropertyFunctionality,
@@ -20,6 +20,8 @@ var standardDomAttributes = (function(){
     function runCategory(key,value,parent,child)
     {
       describe(key+':', function(){
+        trackTestTime.call(this,key);
+        
         for(var x=0,len=methods.length;x<len;x++)
         {
           methods[x](key,value,parent,child);
@@ -37,11 +39,9 @@ var standardDomAttributes = (function(){
             __oldValue = (__node.getAttribute(key) === null ? null : __node.getAttribute(key)),
             __value = value;
 
-        /* insert new value */
         __node.setAttribute(key,__value);
         expect(__node.getAttribute(key)).to.equal(__value);
 
-        /* reset value */
         __node[__oldValue !== null ? 'setAttribute' : 'removeAttribute'](key,__oldValue);
         expect(__node.getAttribute(key)).to.equal(__oldValue);
         done();
@@ -328,10 +328,9 @@ var standardDomAttributes = (function(){
     /* ENDREGION */
     
     describe("STANDARD DOM ATTRIBUTES:",function(){
-      runCategory("id","test",'#test_element','#test_element__sub');
       runCategory("disabled","true",'#test_element','#test_element__sub');
       runCategory("role","button",'#test_element','#test_element__sub');
-      runCategory("onclick","function(e){}",'#test_element','#test_element__sub');
+      runCategory("onkeyup","function(e){}",'#test_element','#test_element__sub'); //issue with IE?
       runCategory("data-custom","500",'#test_element','#test_element__sub');
     });
   }
