@@ -59,9 +59,9 @@ window.pikantny = (function(){
       ],
       
       /* helps with easier style listening changes as .style is an object created afterwards and acts differently than your standard dom property */
-      __CSSList__ = Object.getOwnPropertyNames(document.body.style)
-                    .concat(Object.getOwnPropertyNames(document.body.style.__proto__))
-                    .concat(Array.prototype.slice.call(getComputedStyle(document.body)))
+      __CSSList__ = Object.getOwnPropertyNames(document.head.style)
+                    .concat(Object.getOwnPropertyNames(document.head.style.__proto__))
+                    .concat(Array.prototype.slice.call(getComputedStyle(document.head)))
                     .filter(function(v,i,ar){return (ar.indexOf(v) === i);}),
       
       __CSSSpecials__ = ['webkit','moz','ms'],
