@@ -49,15 +49,6 @@ window.pikantny = (function(){
         'dispatchEvent','Symbol','constructor','__proto__','stop','length','setAttribute','removeAttribute', 'addEventListener','removeEventListener','setProperty','removeProperty','getPropertyValue'
       ],
       
-      /* items that have the same property name but are unique to the elements */
-      __DoubleList__ = [
-        'value'
-      ],
-      
-      __Double__ = {
-        'value':['HTMLInputElement','HTMLTextAreaElement','HTMLSelectElement']
-      },
-      
       __Extended__ = [
         'html'
       ],
@@ -2022,6 +2013,7 @@ window.pikantny = (function(){
     __extensions.isPressedUpdate = false;
     __extensions.isPressed = false;
     __extensions.stop = undefined;
+    __extensions.latestValue = __value;
     return true;
   }
   
@@ -2315,7 +2307,7 @@ window.pikantny = (function(){
     var __element = this,
         __extensions = __element.__pikantnyExtensions__,
         __update = _updateStandard,
-        __value = __element.value,
+        __value = (__element.checked ? 'on' : 'off'),
         __checked = __element.checked,
         __oldValue = __extensions.__prevalue__,
         __oldChecked = __extensions.__prechecked__;
@@ -2329,7 +2321,7 @@ window.pikantny = (function(){
       {
         __update(__element,'value',__value,__oldValue,__extensions);
         __update(__element,'checked',__checked,__oldChecked,__extensions);
-      } 
+      }
     }
     
     __extensions.isPressed = undefined;
@@ -2391,7 +2383,7 @@ window.pikantny = (function(){
   /* used when type attribute is changed on an input to add and remove proper events */
   function typeChangeEvent(e)
   {
-    var __element = this,
+    var __element = e.target,
         __oldValue = e.oldValue;
     
     removeTypeListeners(__oldValue,__element);
@@ -2462,7 +2454,7 @@ window.pikantny = (function(){
         __removeEventListener.call(__element,'keydown',radioKeyDownEvent);
         __removeEventListener.call(__element,'keyup',radioKeyUpEvent);
         __removeEventListener.call(__element,'mousedown',radioMouseDownEvent);
-        __removeEventListener.call(__element,'mouseup',radioMouseUpEvent);
+        __removeEventListener.call(__element,'mouseup',radioMouseClickEvent);
       }
     }
     else
@@ -2484,7 +2476,7 @@ window.pikantny = (function(){
     {
       case 'INPUT':
         addTypeListeners(__element);
-        __element.addEventListener('type',typeChangeEvent);
+        __element.addEventListener('typeupdate',typeChangeEvent);
         break;
       case 'TEXTAREA':
         /* textarea */
@@ -2527,17 +2519,14 @@ window.pikantny = (function(){
     
     if(__blocked__.indexOf(key) !== -1 || key.indexOf('__') === 0) return init;
     
-    if(__extensions[key] && __DoubleList__.indexOf(key) !== -1)
-    {
-      if(__Double__[key].indexOf(title) === -1 || __extensions[key][title]) return init;
-    }
-    else if(__extensions[key])
-    {
-      return init;
-    }
+    if(!__extensions[key]) __extensions[key] = {};
+    
+    if(__extensions[key][title]) return init;
     
     var __descriptor = Object.getOwnPropertyDescriptor(obj,key),
         __defined;
+    
+    if(!__descriptor) return init;
     
     if(__descriptor.configurable)
     {
@@ -2574,8 +2563,6 @@ window.pikantny = (function(){
           if(!_desc) Object.defineProperty(HTMLElement.prototype,'on'+key,descriptorEvent(key));
           if(!_descUpdate) Object.defineProperty(HTMLElement.prototype,'on'+key+'update',descriptorEvent(key,true));
       }
-      
-      if(!__extensions[key]) __extensions[key] = {};
       
       __extensions[key][title] = __descriptor;
     }
