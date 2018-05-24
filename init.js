@@ -2199,8 +2199,6 @@ window.pikantny = (function(){
     __extensions.__prevalue__ = (__element.checked ? 'on' : 'off');
     __extensions.__prechecked__ = __element.checked;
     
-    if(__element.value !== __extensions.__prevalue__) __valueInputDescriptor.set.call(__element,__extensions.__prevalue__);
-    
     return true;
   }
   
