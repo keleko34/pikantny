@@ -69,6 +69,7 @@ var standardDomProperties = (function(){
     
     function defaultBubbledListeners(key,value,node,sub_node)
     {
+      if(!sub_node) return;
       it("Listeners should fire upon update of a child element in a bubbled manner",function(done){
         var __node = document.querySelector(node),
             __sub_node = document.querySelector(sub_node),
@@ -185,6 +186,7 @@ var standardDomProperties = (function(){
     
     function stopBubbledListeners(key,value,node,sub_node)
     {
+      if(!sub_node) return;
       it("Bubbled Parent listeners should not be called if event.stopPropogation is called",function(done){
         var __node = document.querySelector(node),
             __sub_node = document.querySelector(sub_node),
@@ -295,6 +297,7 @@ var standardDomProperties = (function(){
     
     describe("STANDARD DOM PROPERTIES:",function(){
       runCategory("innerHTML","<div>test</div>",'#test_element','#test_element__sub');
+      runCategory("value","testvalue",'#test_input');
       runCategory("className","test__class",'#test_element','#test_element__sub');
       runCategory("id","test__id",'.test_subject__element','.test_subject__element__child');
       runCategory("onclick",function(){},'#test_element','#test_element__sub');

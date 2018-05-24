@@ -15,7 +15,8 @@ console.calculateTime = function(func,cycles)
   return ((times.reduce(function(a, b) { return a + b; }) / times.length) * 1000).toFixed(2)+'ms';
 }
 
-var async = true;
+var async = true,
+    runTests = false;
 
 var pikantnyTest = pikantnyDocument.querySelector('#test'),
     KBTest = KBDocument.querySelector('#test');
@@ -28,78 +29,81 @@ var innerHTMLPerf = new Benchmark.Suite('innerHTML'),
     setAttributePerf = new Benchmark.Suite('setAttribute'),
     appendChildPerf = new Benchmark.Suite('appendChild');
 
-// add tests
-innerHTMLPerf
-.add('KB#innerHTML', function() {
-  KBTest.innerHTML = Math.random();
-})
-.add('Pikantny#innerHTML', function() {
-  pikantnyTest.innerHTML = Math.random();
-})
-// add listeners
-.on('cycle', function(event) {
-  console.log(String(event.target),event);
-})
-.on('complete', function() {
-  console.log('*****Fastest is ' + this.filter('fastest').map('name'),'******');
-})
-// run async
-.run({ 'async': async });
+if(runTests)
+{
+  // add tests
+  innerHTMLPerf
+  .add('KB#innerHTML', function() {
+    KBTest.innerHTML = Math.random();
+  })
+  .add('Pikantny#innerHTML', function() {
+    pikantnyTest.innerHTML = Math.random();
+  })
+  // add listeners
+  .on('cycle', function(event) {
+    console.log(String(event.target),event);
+  })
+  .on('complete', function() {
+    console.log('*****Fastest is ' + this.filter('fastest').map('name'),'******');
+  })
+  // run async
+  .run({ 'async': async });
 
-// add tests
-classNamePerf
-.add('KB#className', function() {
-  KBTest.className = Math.random();
-})
-.add('Pikantny#className', function() {
-  pikantnyTest.className = Math.random();
-})
-// add listeners
-.on('cycle', function(event) {
-  console.log(String(event.target),event);
-})
-.on('complete', function() {
-  console.log('*****Fastest is ' + this.filter('fastest').map('name'),'*****');
-})
-// run async
-.run({ 'async': async });
+  // add tests
+  classNamePerf
+  .add('KB#className', function() {
+    KBTest.className = Math.random();
+  })
+  .add('Pikantny#className', function() {
+    pikantnyTest.className = Math.random();
+  })
+  // add listeners
+  .on('cycle', function(event) {
+    console.log(String(event.target),event);
+  })
+  .on('complete', function() {
+    console.log('*****Fastest is ' + this.filter('fastest').map('name'),'*****');
+  })
+  // run async
+  .run({ 'async': async });
 
-// add tests
-setAttributePerf
-.add('KB#setAttribute', function() {
-  KBTest.setAttribute('data-custom',Math.random());
-})
-.add('Pikantny#setAttribute', function() {
-  pikantnyTest.setAttribute('data-custom',Math.random());
-})
-// add listeners
-.on('cycle', function(event) {
-  console.log(String(event.target),event);
-})
-.on('complete', function() {
-  console.log('*****Fastest is ' + this.filter('fastest').map('name'),'*****');
-})
-// run async
-.run({ 'async': async });
+  // add tests
+  setAttributePerf
+  .add('KB#setAttribute', function() {
+    KBTest.setAttribute('data-custom',Math.random());
+  })
+  .add('Pikantny#setAttribute', function() {
+    pikantnyTest.setAttribute('data-custom',Math.random());
+  })
+  // add listeners
+  .on('cycle', function(event) {
+    console.log(String(event.target),event);
+  })
+  .on('complete', function() {
+    console.log('*****Fastest is ' + this.filter('fastest').map('name'),'*****');
+  })
+  // run async
+  .run({ 'async': async });
 
 
-// add tests
-var d = document.createElement('div');
-    d.innerHTML = "<div></div><input />";
+  // add tests
+  var d = document.createElement('div');
+      d.innerHTML = "<div></div><input />";
 
-appendChildPerf
-.add('KB#appendChild', function() {
-  KBTest.appendChild(d);
-})
-.add('Pikantny#appendChild', function() {
-  pikantnyTest.appendChild(d);
-})
-// add listeners
-.on('cycle', function(event) {
-  console.log(String(event.target),event);
-})
-.on('complete', function() {
-  console.log('*****Fastest is ' + this.filter('fastest').map('name'),'*****');
-})
-// run async
-.run({ 'async': async });
+  appendChildPerf
+  .add('KB#appendChild', function() {
+    KBTest.appendChild(d);
+  })
+  .add('Pikantny#appendChild', function() {
+    pikantnyTest.appendChild(d);
+  })
+  // add listeners
+  .on('cycle', function(event) {
+    console.log(String(event.target),event);
+  })
+  .on('complete', function() {
+    console.log('*****Fastest is ' + this.filter('fastest').map('name'),'*****');
+  })
+  // run async
+  .run({ 'async': async }); 
+}
