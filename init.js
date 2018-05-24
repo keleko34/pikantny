@@ -1,4 +1,4 @@
-/* 
+/*
   Need to handle:
   - standard props v/
   - dispatch event = local path events v/
@@ -18,6 +18,10 @@
   *** issues with styles resetting the descriptor (Garbage collection issue),
       found chrome bug, ref: https://bugs.chromium.org/p/chromium/issues/detail?id=782776
       doesn't break in KB `research workaround`
+  
+  Bugs:
+  *** need to integrate key translator, input preSet not showing the correct value ***
+  *** valueupdate not firing on inputs ***
 */
 
 /* TODO */
@@ -79,11 +83,31 @@ window.pikantny = (function(){
         'tabindex': 'tabIndex'
       },
       
+      __InputIgnores__ = [
+        'submit',
+        'button'
+      ],
+      
+      /* firefox does not fire a keydown event */
+      __InputIMEDetect__ = [
+        'Unidentified', //IE
+        'Process' //Chrome
+      ],
+      
+      /* might not be needed */
+      //__CJKUnicodeCharacters__ = /[\u4E00-\u9FCC\u3400-\u4DB5\uFA0E\uFA0F\uFA11\uFA13\uFA14\uFA1F\uFA21\uFA23\uFA24\uFA27-\uFA29]|[\ud840-\ud868][\udc00-\udfff]|\ud869[\udc00-\uded6\udf00-\udfff]|[\ud86a-\ud86c][\udc00-\udfff]|\ud86d[\udc00-\udf34\udf40-\udfff]|\ud86e[\udc00-\udc1d]/g,
+      
+      
       /* allows listening for all changes no matter what it is */
       __all__ = '*',
       
       __GlobalNodes__ = [window,document];
-      
+  
+  /* ENDREGION */
+  
+  /* DESCRIPTOR LOCALS */
+  /* REGION */
+  
       /* backup to allow complex listening actions */
   var __addEventListener = EventTarget.prototype.addEventListener,
       __removeEventListener = EventTarget.prototype.removeEventListener,
@@ -116,6 +140,7 @@ window.pikantny = (function(){
       
       /* track values for inputs */
       __valueSelectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value'),
+      __indexSelectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'selectedIndex'),
       __valueInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'),
       __valueTextAreaDescriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value'),
       __checkedInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked'),
@@ -306,6 +331,32 @@ window.pikantny = (function(){
   /* note, need to add into account bubbled listeners on nodes that are post inserted into the dom */
   /* .__pikantnyExtensions__.attrListeners, .__pikantnyExtensions__.parentAttrListeners */
   
+  function isLastAttrListener(extension,key)
+  {
+    if(extension.attrListeners[key])
+    {
+      if(extension.attrListeners[key].length > 1) return false;
+    }
+    if(extension.attrUpdateListeners[key])
+    {
+      if(extension.attrUpdateListeners[key].length > 1) return false;
+    }
+    return true;
+  }
+  
+  function isLastParentAttrListener(extension,key)
+  {
+    if(extension.parentAttrListeners[key])
+    {
+      if(extension.parentAttrListeners[key].length > 1) return false;
+    }
+    if(extension.parentAttrUpdateListeners[key])
+    {
+      if(extension.parentAttrUpdateListeners[key].length > 1) return false;
+    }
+    return true;
+  }
+  
   function attachAttrEvent(el,key,func)
   {
     var __element = el,
@@ -484,7 +535,7 @@ window.pikantny = (function(){
           }
         }
         /* check inputs */
-        else if(['value','checked','selectedIndex'].indexOf(__key) !== -1)
+        else if(['value','checked','selectedIndex'].indexOf(__key) !== -1 && ['INPUT','TEXTAREA','SELECT'].indexOf(el.nodeName) !== -1)
         {
           if(listeners[__key].length)
           {
@@ -1294,35 +1345,27 @@ window.pikantny = (function(){
     }
     
     /* handle complicated `value` and `checked` and `selectedIndex` change listeners */
-    else if(['checked','value','selectedIndex'].indexOf(key) !== -1)
+    else if(['value','checked','selectedIndex'].indexOf(__truekey) !== -1)
     {
       /* if its an input and we are looking for checked, values, and selectedIndex, easy listener addons */
-      if(['input','textarea'].indexOf(this.nodeName.toLowerCase()) !== -1)
+      if(['INPUT','TEXTAREA','SELECT'].indexOf(__element.nodeName) !== -1)
       {
-        applyTextChanges(this);
+        attachInputListeners(__element);
       }
-      else if(['select'].indexOf(this.nodeName.toLowerCase()) !== -1)
+      else if(__element.childNodes.length !== 0)
       {
-        applySelectChanges(this);
-      }
-      else if(this.childNodes.length !== 0)
-      {
-        var __inputs = __querySelectorAll.call(this,'input'),
-            __textareas = __querySelectorAll.call(this,'textarea'),
-            __select = __querySelectorAll.call(this,'select');
+        var __inputs = __querySelectorAll.call(__element,'input'),
+            __textareas = __querySelectorAll.call(__element,'textarea'),
+            __select = __querySelectorAll.call(__element,'select');
         
-        function loop(els,isSelect)
+        function loop(els)
         {
-          for(var x=0,len=els.length;x<len;x++)
+          var __len = els.length,
+              __x;
+          
+          for(__x=0;x<__len;x++)
           {
-            if(isSelect)
-            {
-              applySelectChanges(els[x]);
-            }
-            else
-            {
-              applyTextChanges(els[x]);
-            }
+            attachInputListeners(els[__x]);
           }
         }
         
@@ -1331,7 +1374,7 @@ window.pikantny = (function(){
         {
           loop(__inputs);
           loop(__textareas);
-          loop(__select,true);
+          loop(__select);
         }
         /* loop only inputs */
         else if(key === 'checked')
@@ -1361,7 +1404,8 @@ window.pikantny = (function(){
   function processEventRemoval(key,func)
   {
     var __element = this,
-        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __extensions = __element.__pikantnyExtensions__,
+        __truekey = key.replace('update',''),
         __cssInlineKey = getInlineKey(key),
         __cssSpecial = __cssInlineKey.match(/(webkit|moz|ms)/);
     
@@ -1373,91 +1417,55 @@ window.pikantny = (function(){
       return __cssInlineKey;
     }
     
-    if(['checked','value','selectedIndex'].indexOf(key) !== -1)
+    if(['value','checked','selectedIndex'].indexOf(__truekey) !== -1)
     {
       /* run up the tree checking for events, should be run down the tree? */
-      var __isBubbleRemovable = (!__extensions.parentAttrListeners[key] || __extensions.parentAttrListeners[key].length < 2);
-
-      if(!!__extensions.attrListeners[key] && __extensions.attrListeners[key].length < 2)
+      if(isLastAttrListener(__extensions,__truekey))
       {
-        if(['input','textarea'].indexOf(this.nodeName.toLowerCase()) !== -1)
+        if(['INPUT','TEXTAREA','SELECT'].indexOf(__element.nodeName) !== -1)
         {
-          if(['checkbox','radio'].indexOf(this.type) !== -1)
+          if(isLastParentAttrListener(__extensions,__truekey))
           {
-            if(__isBubbleRemovable)
-            {
-              this.removeEventListener('mousedown',inputListener);
-              this.removeEventListener('click',inputUpListener);
-            }
-          }
-          else
-          {
-            if(__isBubbleRemovable)
-            {
-              this.removeEventListener('keydown',inputListener);
-              this.removeEventListener('keyup',inputUpListener);
-            }
-          }
-        }
-        else if(['select'].indexOf(this.nodeName.toLowerCase()) !== -1)
-        {
-          if(__isBubbleRemovable)
-          {
-            this.removeEventListener('focus',selectFocusListener);
-            this.removeEventListener('change',selectListener);
+            removeTypeListeners(__element.type,__element);
           }
         }
         /* need to check if any listeners exist in the  lower tree... oh boy... */
-        else
+        else if(__element.childNodes.length !== 0)
         {
-          var __inputs = __querySelectorAll.call(this,'input'),
-              __textareas = __querySelectorAll.call(this,'textarea'),
-              __select = __querySelectorAll.call(this,'select'),
-              __element = this;
-          
+          var __inputs = __querySelectorAll.call(__element,'input'),
+              __textareas = __querySelectorAll.call(__element,'textarea'),
+              __select = __querySelectorAll.call(__element,'select'),
+              __removeTypeListeners = removeTypeListeners;
+
           /* need to check if listeners are on attrListeners and not to remove if so */
-          function loop(els,type)
+          function loop(els)
           {
-            for(var x=0,len=els.length,isBubbleRemovable,isRadio,el,ext;x<len;x++)
+            var __len = els.length,
+                __key = __truekey,
+                __ext,
+                __el,
+                __x;
+
+            for(__x=0;x<len;x++)
             {
-              el = els[x];
-              ext = (el.__pikantnyExtensions__ || attachLocalBinders(el));
-              isRadio = (['checkbox','radio'].indexOf(el.type) !== -1);
-              isBubbleRemovable = (!ext.parentAttrListeners[key] || ext.parentAttrListeners[key].length < 2)
-              
-              if(!!ext.attrListeners[key] && ext.attrListeners[key].length < 2)
+              __el = els[x];
+              __ext = __el.__pikantnyExtensions__;
+              if(__ext)
               {
-                if(['input','textarea'].indexOf(el.nodeName.toLowerCase()) !== -1)
+                if(['INPUT','TEXTAREA','SELECT'].indexOf(__el.nodeName) !== -1)
                 {
-                  if(isRadio)
+                  if(isLastAttrListener(__ext,__key))
                   {
-                    if(isBubbleRemovable)
+                    if(isLastParentAttrListener(__ext,__key))
                     {
-                      el.removeEventListener('mousedown',inputListener);
-                      el.removeEventListener('mouseup',inputUpListener);
+                      __removeTypeListeners(__el.type,__el);
                     }
-                  }
-                  else
-                  {
-                    if(isBubbleRemovable)
-                    {
-                      el.removeEventListener('keydown',inputListener);
-                      el.removeEventListener('keyup',inputUpListener);
-                    }
-                  }
-                }
-                else
-                {
-                  if(isBubbleRemovable)
-                  {
-                    el.removeEventListener('focus',selectFocusListener);
-                    el.removeEventListener('change',selectListener);
                   }
                 }
               }
             }
           }
-          
+
           /* loop all */
           if(key === 'value')
           {
@@ -1538,7 +1546,6 @@ window.pikantny = (function(){
   /* STYLE DESCRIPTORS AND OVERWRITES */
   /* REGION */
   
-  /* needs rework */
   /* when a style listener is added to an element we convert the `style` object key to an observable */
   function descriptorInlineStyle(element,key)
   {
@@ -1844,227 +1851,657 @@ window.pikantny = (function(){
   /* INPUT DESCRIPTORS AND OVERWRITES */
   /* REGION */
   
-  /* run from events, need seperate for value and checked being set */
-  function runInputEvents(e)
+  /*** [LOGIC]
+  
+  INPUTS/TEXTAREA: set runs on keydown, set+update runs on hold, update runs on keyup
+  INPUTS (Non-Text): prevalueset on focus, set and update runs on input/change,
+  RADIO:  runs on keydown [Spacebar]/ mousedown, update runs on keydown [Spacebar]/ mouseup
+  SELECT: prevalueset on focus, set and update onchange
+  
+  Notes:
+  - IME detection done on keyDown through keys:
+        'Unidentified', //IE
+        'Process' //Chrome
+  - Firefox does not fire key events during IME mode
+  - compisitionstart, compositionend used for IME mode
+  - pasting and cutting fallback done in oninput and fallback to onchange due to IE issues on paste and cut listeners
+    (may change later)
+  - non standard inputs: date, color, etc doesnt contain selectionStart and has oninput and fallback to onchange
+  ***/
+  
+  /* text inputs and textareas */
+  function checkIfBackspace(e)
+  {
+    return (e.key === 'Backspace' || ((e.keyCode || e.which) === 8));
+  }
+  
+  function checkIfPaste(e)
+  {
+    return ((['V','v'].indexOf(e.key) !== -1 || (e.keyCode || e.which) === 86) && e.ctrlKey);
+  }
+  
+  function checkIfCut(e)
+  {
+    return ((['X','x'].indexOf(e.key) !== -1 || (e.keyCode || e.which) === 88) && e.ctrlKey);
+  }
+  
+  function checkIfEnter(e)
+  {
+    return (e.key === 'Enter' || (e.keyCode || e.which) === 13);
+  }
+  
+  function getInputKeyDownChar(e)
+  {
+    if(e.key.length === 1) return e.key;
+    return '';
+  }
+  
+  function getInputKeyDownValue(element,e)
+  {
+    var __value = element.value,
+        __isSelected = (element.selectionStart === element.selectionEnd),
+        __selectStart = element.selectionStart,
+        __selectEnd = element.selectionEnd,
+        __selectedStartText,
+        __selectedEndText;
+    
+    if(__isSelected) 
+    {
+      __selectedStartText = __value.substring(0,__selectStart);
+      __selectedEndText = (__selectEnd === __value.length ? '' : __value.substring(__selectEnd,__value.length));
+      
+      return (__selectedStartText + (checkIfBackspace(e) ? '' : getInputKeyDownChar(e)) + __selectedEndText);
+    }
+    
+    if(checkIfBackspace(e)) return __value.substring(0,(__selectStart-1))+__value.substring(__selectStart,__value.length);
+    
+    return __value.substring(0,__selectStart) + getInputKeyDownChar(e) + __value.substring(__selectStart,__value.length);
+  }
+  
+  /* in the case a input paste happens before any typing */
+  function inputFocusEvent(e)
+  {
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
+    
+    __extensions.__prevalue__ = __element.value;
+    
+    return true;
+  }
+  
+  /* 
+     isPressed: is the key being pressed down
+     isPressedUpdate: if the key was held down long enough for another character to be added and update the input
+     isIME: are we using an IME keyboard system
+     isInputUpdate: do we allow `input` event
+     isAltered: if paste or cut was used 
+     iskeyDownUpdate: if keydown happened then don't run input and onchange 
+   */
+  
+  function inputKeyDownEvent(e)
   {
     if(e.defaultPrevented) return false;
     
-    var __target = e.target,
-        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target)),
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
         __set = _setStandard,
         __update = _updateStandard,
-        __isRadio = (['checkbox','radio'].indexOf(__target.type) !== -1),
-        __oldChecked = __extensions.__prechecked__,
-        __oldValue = (__isRadio ? __oldChecked : __extensions.__prevalue__),
-        __checked = __target.checked,
-        __value = (__isRadio ? __checked : __target.value);
-
-    if(__set(__target,'value',__value,__oldValue,__extensions,__extensions.stop))
+        __value = __element.value,
+        __oldUpdateValue = __extensions.__prevalue__,
+        __oldValue = __value;
+    
+    /* checkif in IME mode */
+    if(__extensions.isIME || __InputIMEDetect__.indexOf(e.key) !== -1)
     {
-      if(__isRadio)
+      __extensions.isIME = true;
+      
+      /* this prevents the form from being submitted on IE when a user hits enter when in IME mode */
+      if(checkIfEnter(e)) return !!e.preventDefault();
+      return true;
+    }
+    
+    __extensions.isInputUpdate = undefined;
+    __extensions.isAltered = undefined;
+    __extensions.isIME = undefined;
+    __extensions.__prevalue__ = __oldValue;
+    
+    if(e.key && (e.key.length !== 1 && !checkIfBackspace(e))) return true;
+    
+    if(checkIfPaste(e) || checkIfCut(e))
+    {
+      __extensions.isAltered = true;
+      return true;
+    }
+    
+    if(e.ctrlKey || e.altKey) return true;
+    
+    __value = getInputKeyDownValue(__element,e);
+    __extensions.isKeyDownUpdate = true;
+    if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
+    {
+      if(__extensions.isPressed)
       {
-        if(__set(__target,'checked',__checked,__oldChecked,__extensions,__extensions.stop))
+        __extensions.isPressedUpdate = true;
+        if(!__extensions.stop) __update(__element,'value',__element.value,__oldUpdateValue,__extensions);
+        __extensions.stop = undefined;
+      }
+      else
+      {
+        __extensions.isPressed = true;
+      }
+    }
+    else
+    {
+      __extensions.stop = true;
+      __extensions.latestValue = __element.value;
+      return !!e.preventDefault();
+    }
+    return true;
+  }
+  
+  function inputKeyUpEvent(e)
+  {
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __update = _updateStandard,
+        __value = __element.value,
+        __oldValue = __extensions.__prevalue__;
+    
+    if(__extensions.isIME || __InputIMEDetect__.indexOf(e.key) !== -1) return true;
+    
+    if(e.key && (e.key.length !== 1 && !checkIfBackspace(e))) return true;
+    
+    if(e.ctrlKey || e.altKey) return true;
+    
+    /* so that update is not fired twice when isPressed is true */
+    if(!__extensions.isPressedUpdate)
+    {
+      if(!__extensions.stop) __update(__element,'value',__value,__oldValue,__extensions);
+    }
+    __extensions.isKeyDownUpdate = false;
+    __extensions.isPressedUpdate = false;
+    __extensions.isPressed = false;
+    __extensions.stop = undefined;
+    return true;
+  }
+  
+  /* Input happens prior to change event in the case of pasting, cutting or non standard inputs */
+  function inputInputEvent(e)
+  {
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __value = __element.value,
+        __oldValue = __extensions.__prevalue__,
+        __isTextArea = (__element.nodeName === 'TEXTAREA');
+    
+    if(__extensions.isIME) return true;
+    
+    /* if we are pasting/cutting using ctrl + v/x keys or from context, run set/update
+       - some browsers throw input event before keyup event
+    */
+    if(__extensions.isAltered || (!__extensions.isKeyDownUpdate && !__extensions.isPressed))
+    {
+      /* fallback to change event if this property is not set */
+      __extensions.isInputUpdate = true;
+      
+      if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
+      {
+        if(!__extensions.stop) __update(__element,'value',__value,__oldValue,__extensions);
+      }
+      else
+      {
+        (__isTextArea ? __valueTextAreaDescriptor : __valueInputDescriptor).set.call(__element,__oldValue);
+        __extensions.stop = undefined;
+        __extensions.latestValue = __element.value;
+        return !!e.preventDefault();
+      }
+      __extensions.latestValue = __element.value;
+      __extensions.stop = undefined;
+    }
+    return true;
+  }
+  
+  /* fallback for pasting or cutting and non standard inputs */
+  function inputChangeEvent(e)
+  {
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __value = __element.value,
+        __oldValue = __extensions.latestValue,
+        __isTextArea = (__element.nodeName === 'TEXTAREA');
+    
+    if(!__extensions.isInputUpdate)
+    {
+      if(__extensions.latestValue !== __element.value)
+      {
+        if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
         {
-          if(!__extensions.stop)
+          if(!__extensions.stop) __update(__element,'value',__value,__oldValue,__extensions);
+        }
+        else
+        {
+          (__isTextArea ? __valueTextAreaDescriptor : __valueInputDescriptor).set.call(__element,__oldValue);
+          __extensions.stop = undefined;
+          return !!e.preventDefault();
+        }
+      }
+    }
+    __extensions.stop = undefined;
+    return true;
+  }
+  
+  /* to add multiLingual IME keyboard support */
+  function inputCompositionStart(e)
+  {
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__;
+    
+    __extensions.isIME = true;
+    __extensions.__prevalue__ = __element.value;
+    
+    return true;
+  }
+  
+  function inputCompositionEnd(e)
+  {
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __value = __element.value,
+        __oldValue = __extensions.__prevalue__,
+        __isTextArea = (__element.nodeName === 'TEXTAREA');
+    
+    if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
+    {
+      if(!__extensions.stop) __update(__element,'value',__value,__oldValue,__extensions);
+    }
+    else
+    {
+      e.preventDefault();
+      (__isTextArea ? __valueTextAreaDescriptor : __valueInputDescriptor).set.call(__element,__oldValue);
+      __extensions.stop = undefined;
+      __extensions.isIME = false;
+      __extensions.latestValue = __element.value;
+      return false;
+    }
+    __extensions.stop = undefined;
+    __extensions.isIME = false;
+    __extensions.latestValue = __element.value;
+    return true;
+  }
+  
+  /* non standard inputs such as new html5 inputs */
+  function nonStandardInputFocusEvent(e)
+  {
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
+    
+    __extensions.__prevalue__ = __element.value;
+    __extensions.isInputUpdate = false;
+    
+    return true;
+  }
+  
+  function nonStandardInputInputEvent(e)
+  {
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __value = __element.value,
+        __oldValue = __extensions.__prevalue__;
+    
+    /* fallback to change event if this property is not set */
+    __extensions.isInputUpdate = true;
+    if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
+    {
+      if(!__extensions.stop) __update(__element,'value',__value,__oldValue,__extensions);
+    }
+    else
+    {
+      __valueInputDescriptor.set.call(__element,__oldValue);
+      __extensions.stop = undefined;
+      return !!e.preventDefault();
+    }
+    __extensions.stop = undefined;
+    return true;
+  }
+  
+  function nonStandardInputChangeEvent(e)
+  {
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __set = _setStandard,
+        __update = _updateStandard,
+        __value = __element.value,
+        __oldValue = __extensions.__prevalue__;
+    
+    if(!__extensions.isInputUpdate)
+    {
+      if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
+      {
+        if(!__extensions.stop) __update(__element,'value',__value,__oldValue,__extensions);
+      }
+      else
+      {
+        __valueInputDescriptor.set.call(__element,__oldValue);
+        __extensions.stop = undefined;
+        return !!e.preventDefault();
+      }
+    }
+    __extensions.stop = undefined;
+    return true;
+  }
+  
+  /* radio elements */
+  function radioFocusEvent(e)
+  {
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
+    
+    __extensions.__prevalue__ = (__element.checked ? 'on' : 'off');
+    __extensions.__prechecked__ = __element.checked;
+    
+    if(__element.value !== __extensions.__prevalue__) __valueInputDescriptor.set.call(__element,__extensions.__prevalue__);
+    
+    return true;
+  }
+  
+  function radioKeyDownEvent(e)
+  {
+    if(e.defaultPrevented) return false;
+    
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __set = _setStandard,
+        __value = (__element.checked ? 'on' : 'off'),
+        __checked = __element.checked,
+        __oldValue,
+        __oldChecked;
+    
+    __extensions.isSpaceBarEvent = undefined;
+    __extensions.isFromMouseEvent = undefined;
+    __extensions.defaultPrevented = undefined;
+    
+    if(e.key === ' ' || ((e.keyCode || e.which) === 32))
+    {
+      __extensions.isSpaceBarEvent = true;
+      if(!__extensions.isPressed)
+      {
+        __extensions.__prevalue__ = __oldValue = __value;
+        __extensions.__prechecked__ = __oldChecked = __element.checked;
+        __value = (__checked ? 'off' : 'on');
+        __checked = (!__checked);
+
+        __extensions.isPressed = true;
+        if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
+        {
+          if(!__set(__element,'checked',__checked,__oldChecked,__extensions,__extensions.stop))
           {
-            __update(__target,'value',__value,__oldValue,__extensions);
-            __update(__target,'checked',__checked,__oldChecked,__extensions);
+            __extensions.defaultPrevented = true;
+            __extensions.stop = true;
+            return !!e.preventDefault();
           }
         }
         else
         {
-          __checkedInputDescriptor.set.call(__target,__oldChecked);
-          __extensions.stop = undefined;
-          return false;
+          __extensions.defaultPrevented = true;
+          __extensions.stop = true;
+          return !!e.preventDefault();
         }
       }
-      else
+    }
+    return true;
+  }
+  
+  function radioKeyUpEvent(e)
+  {
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__;
+    
+    __extensions.isPressed = undefined;
+    return true;
+  }
+  
+  function radioMouseDownEvent(e)
+  {
+    if(e.defaultPrevented) return false;
+    
+    if(e.button !== 0) return true;
+    
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __set = _setStandard,
+        __value = (__element.checked ? 'off' : 'on'),
+        __checked = (!__element.checked),
+        __oldValue = (__element.checked ? 'on' : 'off'),
+        __oldChecked = __element.checked;
+        
+        __extensions.__prevalue__ = __oldValue;
+        __extensions.__prechecked__ = __oldChecked;
+        __extensions.defaultPrevented = undefined;
+        __extensions.isPressed = undefined;
+        __extensions.isFromMouseEvent = true;
+        __extensions.isSpaceBarEvent = undefined;
+    
+    if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
+    {
+      if(!__set(__element,'checked',__checked,__oldChecked,__extensions,__extensions.stop))
       {
-          if(!__extensions.stop)
-          {
-            __update(__target,'value',__value,__oldValue,__extensions);
-          }
+        __extensions.defaultPrevented = true;
+        __extensions.stop = true;
+        return !!e.preventDefault();
       }
     }
     else
     {
-      if(__isRadio) 
-      {
-        __checkedInputDescriptor.set.call(__target,__oldChecked);
-      }
-      else
-      {
-        if(__target.nodeName === 'INPUT') __valueInputDescriptor.set.call(__target,__oldValue);
-        if(__target.nodeName === 'TEXTAREA') __valueTextAreaDescriptor.set.call(__target,__oldValue);
-      }
-      __extensions.stop = undefined;
-      return false;
+      __extensions.defaultPrevented = true;
+      __extensions.stop = true;
+      return !!e.preventDefault();
     }
+    return true;
+  }
+  
+  /* both keydown(spacebar) and mousedown activate click event */
+  function radioMouseClickEvent(e)
+  { 
+    if(e.button !== 0) return true;
+    
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
+        __update = _updateStandard,
+        __value = __element.value,
+        __checked = __element.checked,
+        __oldValue = __extensions.__prevalue__,
+        __oldChecked = __extensions.__prechecked__;
+    
+    if(__extensions.isFromMouseEvent || __extensions.isSpaceBarEvent)
+    {
+      if(__extensions.defaultPrevented) return !!e.preventDefault();
+    
+      /* browsers like to fire click event on spacebar.. */
+      if(!__extensions.stop)
+      {
+        __update(__element,'value',__value,__oldValue,__extensions);
+        __update(__element,'checked',__checked,__oldChecked,__extensions);
+      } 
+    }
+    
+    __extensions.isPressed = undefined;
     __extensions.stop = undefined;
     return true;
   }
   
-  function inputListener(e)
-  { 
-    var __element = this,
-        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
-    
-    /* if we are holding the key we should act like a keyup event happened */
-    if(__extensions.isPressed)
-    {
-      if(!runInputEvents.call(this,e))
-      {
-        e.preventDefault();
-        return false;
-      }
-    }
-    __extensions.isPressed = true;
-    
-    if(['checkbox','radio'].indexOf(this.type) === -1)
-    {
-      __extensions.__prevalue__ = this.value;
-      
-      /* value gets set prior to this running so we can prevent it without user seeing the value, checked requires click event to do the same */
-      if(runInputEvents.call(e.target,e) === false)
-      {
-        e.preventDefault();
-        return false;
-      }
-    }
-    else
-    {
-      __extensions.__prevalue__ = this.value;
-      __extensions.__prechecked__ = this.checked;
-      
-      if(e.type === 'keydown')
-      {
-        if(runInputEvents.call(this,e) === false)
-        {
-          e.preventDefault();
-          return false;
-        }
-      }
-    }
-  }
-  
-  function inputKeyListener(e)
-  {
-    if((e.keyCode || e.which) === 32) return inputListener.call(this,e);
-    return true;
-  }
-  
-  function inputUpListener(e)
+  /* select elements */
+  function selectFocusEvent(e)
   {
     var __element = this,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
     
-    /* in the case 'enter' or 'space' is pressed on a radio input */
-    if(['checkbox','radio'].indexOf(this.type) !== -1 && e.type !== 'keydown') runInputEvents.call(this,e);
-    
-    __extensions.isPressed = false;
-  }
-  
-  function inputKeyUpListener(e)
-  {
-    if((e.keyCode || e.which) === 32) return inputUpListener.call(this,e);
+    __extensions.__prevalue__ = __element.value;
+    __extensions.__preindex__ = __element.selectedIndex;
     return true;
   }
   
-  function selectListener(e)
+  function selectChangeEvent(e)
   {
-    var __target = e.target,
-        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target)),
+    var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
         __set = _setStandard,
         __update = _updateStandard,
+        __value = __element.value,
+        __index = __element.selectedIndex,
         __oldValue = __extensions.__prevalue__,
-        __oldIndex = __extensions.__preindex__,
-        __index = __target.selectedIndex,
-        __value = __target.value;
+        __oldIndex = __extensions.__preindex__;
     
-    if(__set(__target,'value',__value,__oldValue,__extensions))
+    if(__set(__element,'value',__value,__oldValue,__extensions,__extensions.stop))
     {
-      if(__set(__target,'selectedIndex',__index,__oldIndex,__extensions))
+      if(__set(__element,'selectedIndex',__index,__oldIndex,__extensions,__extensions.stop))
       {
         if(!__extensions.stop)
         {
-          __update(__target,'value',__value,__oldValue,__extensions);
-          __update(__target,'selectedIndex',__index,__oldIndex,__extensions);
+          __update(__element,'value',__value,__oldValue,__extensions);
+          __update(__element,'selectedIndex',__index,__oldIndex,__extensions);
         }
+      }
+      else
+      {
+        __indexSelectDescriptor.set.call(__element,__oldIndex);
+        __valueSelectDescriptor.set.call(__element,__oldValue);
+        __extensions.stop = undefined;
+        return !!e.preventDefault();
       }
     }
     else
     {
-      __valueSelectDescriptor.set.call(__target,__oldValue);
+      __indexSelectDescriptor.set.call(__element,__oldIndex);
+      __valueSelectDescriptor.set.call(__element,__oldValue);
       __extensions.stop = undefined;
-      return false;
+      return !!e.preventDefault();
     }
     __extensions.stop = undefined;
     return true;
   }
   
-  function selectFocusListener(e)
+  /* used when type attribute is changed on an input to add and remove proper events */
+  function typeChangeEvent(e)
   {
-    var __target = e.target,
-        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target));
+    var __element = this,
+        __oldValue = e.oldValue;
     
-    __extensions.__prevalue__ = this.value;
-    __extensions.__preindex__ = this.selectedIndex;
+    removeTypeListeners(__oldValue,__element);
+    addTypeListeners(__element);
+    return true;
   }
   
-  function applyTextChanges(element)
+  function addTypeListeners(element)
   {
-    var __target = element,
-        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target)),
-        __events = __extensions.events;
+    var __element = element,
+        __extensions = __element.__pikantnyExtensions__;
+    __extensions.nonStandard = false;
     
-    if(!__extensions.inputExtended)
+    if(['checkbox','radio'].indexOf(__element.type) !== -1)
     {
-      __extensions.inputExtended = true;
-      __extensions.isPressed = false;
-      
-      /* need to support html5 input types */
-      
-      if(['checkbox','radio'].indexOf(__target.type) !== -1)
+      /* radio and checkbox inputs */
+      __addEventListener.call(__element,'focus',radioFocusEvent);
+      __addEventListener.call(__element,'keydown',radioKeyDownEvent);
+      __addEventListener.call(__element,'keyup',radioKeyUpEvent);
+      __addEventListener.call(__element,'mousedown',radioMouseDownEvent);
+      __addEventListener.call(__element,'click',radioMouseClickEvent);
+    }
+    else if(__element.selectionStart === null)
+    {
+      __extensions.nonStandard = true;
+
+      /* non standard inputs */
+      __addEventListener.call(__element,'focus',nonStandardInputFocusEvent);
+      __addEventListener.call(__element,'input',nonStandardInputInputEvent);
+      __addEventListener.call(__element,'change',nonStandardInputChangeEvent);
+    }
+    else
+    {
+      /* standard text inputs */
+      __addEventListener.call(__element,'focus',inputFocusEvent);
+      __addEventListener.call(__element,'keydown',inputKeyDownEvent);
+      __addEventListener.call(__element,'keyup',inputKeyUpEvent);
+      __addEventListener.call(__element,'input',inputInputEvent);
+      __addEventListener.call(__element,'change',inputChangeEvent);
+      __addEventListener.call(__element,'compositionstart',inputCompositionStart);
+      __addEventListener.call(__element,'compositionend',inputCompositionEnd);
+    }
+  }
+  
+  function removeTypeListeners(type,element)
+  {
+    var __element = element,
+        __extensions = __element.__pikantnyExtensions__,
+        __type = type;
+    
+    if(!__extensions.nonStandard)
+    {
+      if(['checkbox','radio'].indexOf(__type) === -1)
       {
-        __target.addEventListener('mousedown',inputListener,false);
-        __target.addEventListener('keydown',inputKeyListener,false);
-        __target.addEventListener('click',inputUpListener,false);
-        __target.addEventListener('keyup',inputKeyUpListener,false);
-        __extensions.__prevalue__ = __target.value;
-        __extensions.__prechecked__ = __target.checked.toString();
+        /* standard text inputs */
+        __removeEventListener.call(__element,'focus',inputFocusEvent);
+        __removeEventListener.call(__element,'keydown',inputKeyDownEvent);
+        __removeEventListener.call(__element,'keyup',inputKeyUpEvent);
+        __removeEventListener.call(__element,'input',inputInputEvent);
+        __removeEventListener.call(__element,'change',inputChangeEvent);
+        __removeEventListener.call(__element,'compositionstart',inputCompositionStart);
+        __removeEventListener.call(__element,'compositionend',inputCompositionEnd);
       }
       else
       {
-        __target.addEventListener('keydown',inputListener,false);
-        __target.addEventListener('keyup',inputUpListener,false);
-        __extensions.__prevalue__ = __target.value;
+        /* radio and checkbox inputs */
+        __removeEventListener.call(__element,'focus',radioFocusEvent);
+        __removeEventListener.call(__element,'keydown',radioKeyDownEvent);
+        __removeEventListener.call(__element,'keyup',radioKeyUpEvent);
+        __removeEventListener.call(__element,'mousedown',radioMouseDownEvent);
+        __removeEventListener.call(__element,'mouseup',radioMouseUpEvent);
       }
-      return true;
     }
-    return false;
-  }
-  
-  function applySelectChanges(element)
-  {
-    var __target = element,
-        __extensions = (__target.__pikantnyExtensions__ || attachLocalBinders(__target)),
-        __events = __extensions.events;
-    
-    if(!__extensions.inputExtended)
+    else
     {
-      __extensions.inputExtended = true;
-      __target.addEventListener('focus',selectFocusListener,false);
-      __target.addEventListener('change',selectListener,false);
-      __extensions.__prevalue__ = __target.value;
-      __extensions.__preindex__ = __target.selectedIndex;
-      return true;
+      __extensions.nonStandard = undefined;
+      
+      /* non standard inputs */
+      __removeEventListener.call(element,'focus',nonStandardInputFocusEvent);
+      __removeEventListener.call(element,'input',nonStandardInputInputEvent);
+      __removeEventListener.call(element,'change',nonStandardInputChangeEvent);
     }
-    return false;
   }
   
   function attachInputListeners(element)
   {
-    return (['INPUT','TEXTAREA'].indexOf(element.nodeName) !== -1 ? applyTextChanges(element) : (element.nodeName === 'SELECT' ? applySelectChanges(element) : false));
+    var __element = element;
+    
+    switch(__element.nodeName)
+    {
+      case 'INPUT':
+        addTypeListeners(__element);
+        __element.addEventListener('type',typeChangeEvent);
+        break;
+      case 'TEXTAREA':
+        /* textarea */
+        __addEventListener.call(__element,'focus',inputFocusEvent);
+        __addEventListener.call(__element,'keydown',inputKeyDownEvent);
+        __addEventListener.call(__element,'keyup',inputKeyUpEvent);
+        __addEventListener.call(__element,'input',inputInputEvent);
+        __addEventListener.call(__element,'change',inputChangeEvent);
+        __addEventListener.call(__element,'compositionstart',inputCompositionStart);
+        __addEventListener.call(__element,'compositionend',inputCompositionEnd);
+        break;
+      case 'SELECT':
+        /* option select box */
+        __addEventListener.call(__element,'focus',selectFocusEvent);
+        __addEventListener.call(__element,'change',selectChangeEvent);
+        break;
+    }
   }
   
   /* ENDREGION */
