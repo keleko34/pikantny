@@ -26,13 +26,7 @@
 
 /* TODO */
 
-/* custom style properties */
-
 /* add descriptor for attributes.setNamedItems, attributes.removeNamedItems */
-
-/* classList.add and classList.remove do not fire class or className events */
-
-/* when .addEventListener() is done with a nonexistent property and attribute, we add both as observables */
 
 "use strict";
 
@@ -53,9 +47,20 @@ window.pikantny = (function(){
         'dispatchEvent','Symbol','constructor','__proto__','stop','length','setAttribute','removeAttribute', 'addEventListener','removeEventListener','setProperty','removeProperty','getPropertyValue'
       ],
       
-      __Extended__ = [
-        'html'
-      ],
+      __Extended__ = {
+        textContent: 'html',
+        innerHTML: 'html',
+        innerText: 'html',
+        outerHTML: 'html',
+        outerText: 'html',
+        appendChild: 'html',
+        removeChild: 'html',
+        replaceChild: 'html',
+        insertAdjacentHTML: 'html',
+        insertBefore: 'html',
+        className: 'class'
+      },
+      __NonTraditional__ = ['html'],
       
       /* helps with easier style listening changes as .style is an object created afterwards and acts differently than your standard dom property */
       __CSSList__ = Object.getOwnPropertyNames(document.head.style)
@@ -64,9 +69,6 @@ window.pikantny = (function(){
                     .filter(function(v,i,ar){return (ar.indexOf(v) === i);}),
       
       __CSSSpecials__ = ['webkit','moz','ms'],
-      
-      /* all of these effect the text associated with an element */
-      __TextPropertyList__ = ['textContent','innerHTML','innerText','outerHTML','outerText','appendChild','removeChild','replaceChild','insertAdjacentHTML','insertBefore'],
       
       /* allowing us to see the original events, and to skip observing when using addEventListener */
       __EventList__ = Object.keys(HTMLElement.prototype).filter(function(v){return (v.indexOf('on') === 0);})
@@ -497,6 +499,18 @@ window.pikantny = (function(){
     return Object.defineProperty(el.style,key,descriptorInlineStyle(el,key));
   }
   
+  function processClassList(element, classList)
+  {
+    if(!classList.__add)
+    {
+      classList.__add = classList.add;
+      classList.__remove = classList.remove;
+
+      classList.add = descriptorClassListAdd.bind(element);
+      classList.remove = descriptorClassListRemove.bind(element);
+    }
+  }
+  
   function attachHtmlWatcher()
   {
     var q = __querySelectorAll;
@@ -542,7 +556,7 @@ window.pikantny = (function(){
         {
           if(el[__key] === undefined)
           {
-            if(__Extended__.indexOf(__key) === -1)
+            if(__NonTraditional__.indexOf(__key) === -1)
             {
               processNewAttr(el,__key);
             }
@@ -1193,6 +1207,52 @@ window.pikantny = (function(){
     return undefined;
   }
   
+  function descriptorClassListAdd(value)
+  {
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __classList = __element.classList,
+        __add = __classList.__add,
+        __ret = 0;
+    
+    if(_setStandard(this,'class','',value,__extensions,__extensions.stop))
+    {
+      if(_setStandard(this,'className','',value,__extensions,__extensions.stop))
+      {
+        __ret = __add.call(__classList,value);
+        if(!__extensions.stop)
+        {
+          _updateStandard(this,'class','',value,__extensions);
+          _updateStandard(this,'className','',value,__extensions);
+        }
+      }
+    }
+    return __ret;
+  }
+  
+  function descriptorClassListRemove(value)
+  {
+    var __element = this,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+        __classList = __element.classList,
+        __remove = __classList.__remove,
+        __ret = 0;
+    
+    if(_setStandard(this,'class',value,'',__extensions,__extensions.stop))
+    {
+      if(_setStandard(this,'className',value,'',__extensions,__extensions.stop))
+      {
+        __ret = __remove.call(__classList,value);
+        if(!__extensions.stop)
+        {
+          _updateStandard(this,'class',value,'',__extensions);
+          _updateStandard(this,'className',value,'',__extensions);
+        }
+      }
+    }
+    return __ret;
+  }
+  
   /* ENDREGION */
   
   /* EVENT DESCRIPTORS AND OVERWRITES */
@@ -1315,25 +1375,31 @@ window.pikantny = (function(){
   
   function processEvent(key,func)
   {
-    /* handle inline css change listeners, attribute, and cssText, setProperty */
+    /* handle inline css change listeners, attribute, and cssText, setProperty, classList */
     var __element = this,
+        __extensions = __element.__pikantnyExtensions__,
         __truekey = key.replace('update',''),
         __cssInlineKey = getInlineKey(__truekey),
         __cssSpecial = __cssInlineKey.match(/(webkit|moz|ms)/);
-        
+    
+    /* in case we have a css proeprty we need to inject the style object for that style */
     if(__CSSList__.indexOf(__cssInlineKey) !== -1 || (__cssSpecial && __cssSpecial.index === 0))
     {
       var __cssKey = getStyleKey(__truekey),
-          __hasUpdate = (key.indexOf('update') !== -1 ? 'update' : '');
-      
-      if(!__element.style[__cssInlineKey])
+          __hasUpdate = (key.indexOf('update') !== -1 ? 'update' : ''),
+          __children = __querySelectorAll.call(__element,'*'),
+          __len = __children.length,
+          __ext,
+          __x;
+          
+      if(!__extensions.__styleList__ || __extensions.__styleList__.indexOf(__cssInlineKey) === -1)
       {
         processNewStyle(__element,__cssInlineKey);
-        var __children = __querySelectorAll.call(__element,'*');
-        for(var x=0,len=__children.length;x<len;x++)
-        {
-          processNewStyle(__children[x],__cssInlineKey);
-        }
+      }   
+      for(__x=0;__x<__len;__x++)
+      {
+        __ext = (__children[__x].__pikantnyExtensions__ || attachLocalBinders(__children[__x]))
+        if(!__ext.__styleList__ || __ext.__styleList__.indexOf(__cssInlineKey) === -1) processNewStyle(__children[__x],__cssInlineKey);
       }
       
       processStyleEvent(__element,__cssInlineKey,__cssKey);
@@ -1347,7 +1413,7 @@ window.pikantny = (function(){
       /* if its an input and we are looking for checked, values, and selectedIndex, easy listener addons */
       if(['INPUT','TEXTAREA','SELECT'].indexOf(__element.nodeName) !== -1)
       {
-        attachInputListeners(__element);
+        if(!__extensions.injectedInput) attachInputListeners(__element);
       }
       else if(__element.childNodes.length !== 0)
       {
@@ -1358,11 +1424,13 @@ window.pikantny = (function(){
         function loop(els)
         {
           var __len = els.length,
+              __ext,
               __x;
           
           for(__x=0;x<__len;x++)
           {
-            attachInputListeners(els[__x]);
+            __ext = (els[__x].__pikantnyExtensions__ || attachLocalBinders(els[__x]))
+            if(!__ext.injectedInput) attachInputListeners(els[__x]);
           }
         }
         
@@ -1385,7 +1453,21 @@ window.pikantny = (function(){
         }
       }
     }
-    else if(__GlobalNodes__.indexOf(__element) === -1 && __element.getAttribute(__truekey) === null && !__element[__truekey] && __Extended__.indexOf(__truekey) === -1)
+    
+    /* in case we are trying to listen to class or className we should inject the classList as well */
+    else if(['class','className'].indexOf(__truekey) !== -1)
+    {
+      var __children = __querySelectorAll.call(__element,'*'),
+          __len = __children.length,
+          __x;
+      
+      processClassList(__element,__element.classList);
+      for(__x=0;__x<__len;__x++)
+      {
+        processClassList(__children[__x],__children[__x].classList);
+      }
+    }
+    else if(__GlobalNodes__.indexOf(__element) === -1 && __element.getAttribute(__truekey) === null && !__element[__truekey] && __NonTraditional__.indexOf(__truekey) === -1)
     {
       processNewAttr(__element,__truekey);
       var __children = __querySelectorAll.call(__element,'*');
@@ -1798,13 +1880,14 @@ window.pikantny = (function(){
   {
     var __element = element,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
-        __elementList = __element.style.__styleList__,
         __list = __extensions.__styleList__;
     
-    if(!__list || !__elementList)
+    if(!__list)
     {
       __list = __extensions.__styleList__ = [];
-      __elementList = __element.style.__styleList__ = [];
+      
+      /* Chrome likes to randomly GC the style object, if we have a pointer to the style object GC ignores it  */
+      __extensions.__GCStyleFix__ = __element.style;
       
       Object.defineProperty(__element.style,'setProperty',descriptorCSSSetProperty(__element));
       Object.defineProperty(__element.style,'removeProperty',descriptorCSSRemoveProperty(__element));
@@ -1816,15 +1899,7 @@ window.pikantny = (function(){
       /* set local style listener first */
       Object.defineProperty(__element.style,key,descriptorInlineStyle(__element,key,keyProper));
       __extensions.__styleList__[__list.length] = key;
-      __element.style.__styleList__[__elementList.length] = key;
       return true;
-    }
-    
-    if(__elementList.indexOf(key) === -1 && __list.indexOf(key) !== -1)
-    {
-      /* set local style listener first */
-      Object.defineProperty(__element.style,key,descriptorInlineStyle(__element,key,keyProper));
-      __element.style.__styleList__[__elementList.length] = key;
     }
     return false;
   }
@@ -2390,7 +2465,7 @@ window.pikantny = (function(){
     var __element = e.target,
         __oldValue = e.oldValue;
     
-    removeTypeListeners(__oldValue,__element);
+    removeTypeListeners(__oldValue,__element,true);
     addTypeListeners(__element);
     return true;
   }
@@ -2432,12 +2507,20 @@ window.pikantny = (function(){
     }
   }
   
-  function removeTypeListeners(type,element)
+  function removeTypeListeners(type,element,isTypeChange)
   {
     var __element = element,
         __extensions = __element.__pikantnyExtensions__,
         __type = type;
     
+    if(element.nodeName === 'SELECT')
+    {
+      __removeEventListener.call(__element,'focus',selectFocusEvent);
+      __removeEventListener.call(__element,'change',selectChangeEvent);
+      __extensions.injectedInput = undefined;
+      return true;
+    }
+       
     if(!__extensions.nonStandard)
     {
       if(['checkbox','radio'].indexOf(__type) === -1)
@@ -2450,6 +2533,11 @@ window.pikantny = (function(){
         __removeEventListener.call(__element,'change',inputChangeEvent);
         __removeEventListener.call(__element,'compositionstart',inputCompositionStart);
         __removeEventListener.call(__element,'compositionend',inputCompositionEnd);
+        if(!isTypeChange)
+        {
+          __element.removeEventListener('typeupdate',typeChangeEvent);
+          __extensions.injectedInput = undefined;
+        }
       }
       else
       {
@@ -2459,6 +2547,11 @@ window.pikantny = (function(){
         __removeEventListener.call(__element,'keyup',radioKeyUpEvent);
         __removeEventListener.call(__element,'mousedown',radioMouseDownEvent);
         __removeEventListener.call(__element,'mouseup',radioMouseClickEvent);
+        if(!isTypeChange)
+        {
+          __element.removeEventListener('typeupdate',typeChangeEvent);
+          __extensions.injectedInput = undefined;
+        }
       }
     }
     else
@@ -2469,18 +2562,25 @@ window.pikantny = (function(){
       __removeEventListener.call(element,'focus',nonStandardInputFocusEvent);
       __removeEventListener.call(element,'input',nonStandardInputInputEvent);
       __removeEventListener.call(element,'change',nonStandardInputChangeEvent);
+      if(!isTypeChange)
+      {
+        __element.removeEventListener('typeupdate',typeChangeEvent);
+        __extensions.injectedInput = undefined;
+      }
     }
   }
   
   function attachInputListeners(element)
   {
-    var __element = element;
+    var __element = element,
+        __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
     
     switch(__element.nodeName)
     {
       case 'INPUT':
         addTypeListeners(__element);
         __element.addEventListener('typeupdate',typeChangeEvent);
+        __extensions.injectedInput = true;
         break;
       case 'TEXTAREA':
         /* textarea */
@@ -2491,11 +2591,13 @@ window.pikantny = (function(){
         __addEventListener.call(__element,'change',inputChangeEvent);
         __addEventListener.call(__element,'compositionstart',inputCompositionStart);
         __addEventListener.call(__element,'compositionend',inputCompositionEnd);
+        __extensions.injectedInput = true;
         break;
       case 'SELECT':
         /* option select box */
         __addEventListener.call(__element,'focus',selectFocusEvent);
         __addEventListener.call(__element,'change',selectChangeEvent);
+        __extensions.injectedInput = true;
         break;
     }
   }
@@ -2534,15 +2636,15 @@ window.pikantny = (function(){
     
     if(__descriptor.configurable)
     {
-      if(__TextPropertyList__.indexOf(key) !== -1)
+      if(__Extended__[key])
       {
         if(__descriptor.set)
         {
-          __defined = !!Object.defineProperty(obj,key,descriptorStandard(__descriptor,key,'html'));
+          __defined = !!Object.defineProperty(obj,key,descriptorStandard(__descriptor,key,__Extended__[key]));
         }
         else if(typeof __descriptor.value === 'function')
         {
-          __defined = !!Object.defineProperty(obj,key,descriptorFunction(__descriptor,key,'html'));
+          __defined = !!Object.defineProperty(obj,key,descriptorFunction(__descriptor,key,__Extended__[key]));
         }
       }
       else if(__descriptor.set)

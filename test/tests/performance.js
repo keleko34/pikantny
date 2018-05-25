@@ -16,7 +16,7 @@ console.calculateTime = function(func,cycles)
 }
 
 var async = true,
-    runTests = false;
+    runTests = true;
 
 var pikantnyTest = pikantnyDocument.querySelector('#test'),
     KBTest = KBDocument.querySelector('#test');
