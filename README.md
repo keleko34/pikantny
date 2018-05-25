@@ -27,9 +27,10 @@ This library allows you to use event listeners in such a manner as standard even
 Installation
 ============
 This libray can be installed using:
- ** [NPM](https://www.npmjs.com) :  `npm install pikantny --save`
- ** [Bower](https://bower.io/) : `bower install pikantny --save`
- ** [Yarn](https://yarnpkg.com/lang/en/docs/install) : `yarn add pikantny`
+
+ * [NPM](https://www.npmjs.com) :  `npm install pikantny --save`
+ * [Bower](https://bower.io/) : `bower install pikantny --save`
+ * [Yarn](https://yarnpkg.com/lang/en/docs/install) : `yarn add pikantny`
 
 Getting started
 ============
@@ -159,11 +160,12 @@ You can use `return false;` or `event.preventDefault();` to stop the input from 
 How to contribute
 =================
 If You would like to contribute here are the steps
-#1. Clone Repo: [Pikantny Github Repo](https://github.com/keleko34/pikantny)
-#2. Install any necessary dev dependencies
-#3. build the project `npm run build`
-#4. test your changes don't break anything `npm test`
-#5. Make a request for your changes :)
+
+1. Clone Repo: [Pikantny Github Repo](https://github.com/keleko34/pikantny)
+2. Install any necessary dev dependencies
+3. build the project `npm run build`
+4. test your changes don't break anything `npm test`
+5. Make a request for your changes :)
 
 License
 =======
