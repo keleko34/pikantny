@@ -25,7 +25,7 @@ Table of contents
 
 What is it?
 ==========
-This library allows you to use event listeners in such a manner as standard events to listen to changes from anything that happens on the DOM, from listening to when html changes to when a style gets set or even when a value on an input changes.
+This library allows you to use event listeners in such a manner as standard events to listen to changes from anything that happens on the DOM, from listening to when html changes to when a style gets set or even when a value on an input changes
 
 Installation
 ============
