@@ -1,51 +1,51 @@
 # Pikantny
-> Extending DOM event listening to include attributes, properties, and styles
+> Rozszerzenie słuchania zdarzeń DOM o atrybuty, właściwości i style
 
 [![NPM version][npm-image]][npm-url] [![Gitter][gitter-image]][gitter-url]
 
 [English](https://github.com/keleko34/pikantny/blob/master/README.md) [Español](https://github.com/keleko34/pikantny/blob/master/README.es.md) [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md) [Pусский](https://github.com/keleko34/pikantny/blob/master/README.ru.md) [中文](https://github.com/keleko34/pikantny/blob/master/README.zh.md)
 
-Table of contents
+Spis treści
 =================
 
-   * [What is it?](#what-is-it)
-   * [Installation](#installation)
-   * How to use it:
-      * [Getting started](#getting-started)
-      * [Attributes](#attributes)
-      * [Properties](#properties)
-      * [Functions](#functions)
-      * [Styles](#styles)
-      * [Inputs](#inputs)
-      * [Event object](#event-object)
-   * [Examples](#examples)
-   * [Debugging](#debugging)
-   * [How to contribute](#how-to-contribute)
+   * [Co to jest?](#co-to-jest)
+   * [Instalacja](#instalacja)
+   * Jak tego użyć:
+      * [Implementacja](#implementacja)
+      * [Atrybuty](#atrybuty)
+      * [Właściwości](#właściwości)
+      * [Funcje](#funcje)
+      * [Stylu](#stylu)
+      * [Inputy](#inputy)
+      * [Obiekty event](#obiekty-event)
+   * [Przykład](#przykład)
+   * [Debugowanie](#debugowanie)
+   * [Jak wnieść wkład](#jak-wnieść-wkład )
    * [License](#license)
 
-What is it?
+Co to jest?
 ==========
-This library allows you to use event listeners in such a manner as standard events to listen to changes from anything that happens on the DOM, from listening to when html changes to when a style gets set or even when a value on an input changes.
+Dzięki temu można używać obserwatorów zdarzeń w taki sam sposób, jak standardowe obserwatorów zdarzeń. Obserwować ze wszystkiego, co dzieje się w DOM. zmian html, zmian stylu, a nawet od zmiany wartości wejścia.
 
-Installation
+Instalacja
 ============
-This libray can be installed using:
+Można to zainstalować za pomocą:
 
  * [NPM](https://www.npmjs.com) :  `npm install pikantny --save`
  * [Bower](https://bower.io/) : `bower install pikantny --save`
  * [Yarn](https://yarnpkg.com/lang/en/docs/install) : `yarn add pikantny`
 
-Getting started
+Implementacja
 ============
-The script can be loaded both in the head and in the body. 
-All functionality is automatically loaded as soon as the file is loaded.
-*Note: include this script before any other scripts for proper implementation* 
+API może mieć znacznik HTML Script w strony u góry lub u dołu.
+Wszystkie funkcje są ładowane automatycznie po załadowaniu pliku.
+*Uwaga: dołącz ten API przed jakimkolwiek innym javascript do prawidłowej implementacji* 
 ```
  <script src="/(node_modules|bower_modules)/pikantny/init.min.js"></script>
 ```
 
-To start using it is as simple as just using your standard listener method
-#### Native
+Aby rozpocząć używanie standardowe obserwatorów zdarzeń metody
+#### Ojczysty
 ```
  var node = document.querySelector('selector')
  node.addEventListener('innerHTML', console.log);
@@ -56,14 +56,14 @@ To start using it is as simple as just using your standard listener method
  $('selector').on('innerHTML', console.log);
 ```
 
-when listening for propery events there are two different types of listeners, the pre DOM update listener and the post DOM update listener. By simply adding `update` to the end of any listener your event will fire post DOM update
+Obserwatorów zdarzeń propery są dwa różne typy detektorów, detektor aktualizacji pre DOM i detektor aktualizacji postu. Przez dodanie "update" na końcu dowolnego detektora, twoje zdarzenie uruchomi aktualizację DOM po aktualizacji.
 ```
  node.addEventListener('innerHTMLupdate', console.log);
 ```
 
-Attributes
+Atrybuty
 ==========
-Attribute event listeners can be added to detect any changes in any attributes
+Atrybuty obserwatorów zdarzeń można dodawać w celu wykrycia wszelkich zmian w dowolnych atrybutach
 ```
  node.addEventListener('id', console.log);
  node.setAttribute('id','your-id');
@@ -71,23 +71,23 @@ Attribute event listeners can be added to detect any changes in any attributes
  node.id = 'your-id';
 ```
 
-Properties
+Właściwości
 ==========
-Properties of an element also allow listening for any changes
+Właściwości elementu pozwalają również obserwować wszelkie zmiany
 ```
  node.addEventListener('textContent', console.log);
  node.textContent = 'new-text';
 ```
 
-Functions
+Funcje
 ==========
-Any element methods allow listening for their execution
+Dowolne metody elementów pozwalają na obserwację ich wykonania
 ```
  node.addEventListener('appendChild', console.log);
  node.appendChild(input);
 ```
 
-Styles
+Stylu
 ======
 Styles associated with the styles obect or styles attribute also allow listening for any changes, each respective listener will fire if multiple are set in the style attribute
 ```
@@ -97,15 +97,15 @@ Styles associated with the styles obect or styles attribute also allow listening
  node.setAttribute('style','color:#000;');
 ```
 
-Inputs
+Inputy
 ======
 Input value changes also allow listening for any changes and are IME compatible
 ```
  input.addEventListener('value', console.log);
 ```
 
-Event object
-============
+Obiekty event
+=============
 The event object that is passed to each of these fired events allow for similiar functionality as that of a standard DOM event listener
 
 #### event.preventDefault()
@@ -145,7 +145,7 @@ Shows the previous value of the item being set
 All other event properties follow the same guideline as a standard Event object
 
 
-Examples
+Przykład
 ========
 #### Element changes
 Don't allow an element to have any html changes
@@ -162,11 +162,11 @@ You can use `return false;` or `event.preventDefault();` to stop the input from 
  input.addEventListener('value',function(e){ return /^[0-9A-Za-z]+$/.test(e.value); });
 ```
 
-Debugging
-=========
+Debugowanie
+===========
 This library supports dev console events panel, all events added will show up in this panel.
 
-How to contribute
+Jak wnieść wkład
 =================
 If You would like to contribute here are the steps
 
