@@ -30,6 +30,10 @@
 
 /* add descriptor for attributes.setNamedItems, attributes.removeNamedItems */
 
+/* classList.add and classList.remove do not fire class or className events */
+
+/* when .addEventListener() is done with a nonexistent property and attribute, we add both as observables */
+
 "use strict";
 
 window.pikantny = (function(){
@@ -283,7 +287,7 @@ window.pikantny = (function(){
     for(_x=0;_x<_len;_x++)
     {
       /* loop and call listeners */
-      looper[_x](_e);
+      if(looper[_x](_e) === false) _e.__preventDefault__ = true;
       
       /* if stopImmediatePropogation method was called then we stop calling listeners on this node  */
       if(_e.__stopImmediatePropogation__) break;
