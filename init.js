@@ -625,7 +625,8 @@ window.pikantny = (function(){
   function _setStandard(el, prop, val, oldValue, __extensions, stop, args, action, style)
   {
     /* create event */
-    var e = new changeEvent(val,oldValue,el,prop,style,args,el,prop,stop);
+    // value,oldValue,target,attr,style,args,action,srcElement,type,stop,cancelable,bubbles
+    var e = new changeEvent(val,oldValue,el,prop,style,args,action,el,prop,stop);
     
     /* get standard and bubbled listeners */
     var localAttrListeners = __extensions.attrListeners,
@@ -663,7 +664,8 @@ window.pikantny = (function(){
   /* runs the associated post value set update listeners */
   function _updateStandard(el, prop, val, oldValue, __extensions, args, action, style)
   {
-    /* create event value,oldValue,target,attr,style,arguments,action,srcElement,type,stop,cancelable,bubbles */
+    /* create event */
+    // value,oldValue,target,attr,style,args,action,srcElement,type,stop,cancelable,bubbles
     var e = new changeEvent(val,oldValue,el,prop,style,args,action,el,prop+'update');
     /* get standard and bubbled update listeners */
     var localAttrListeners = __extensions.attrUpdateListeners,
