@@ -12,7 +12,9 @@ Table of contents
       * [Getting started](#getting-started)
       * [Attributes](#attributes)
       * [Properties](#properties)
+      * [Functions](#functions)
       * [Styles](#styles)
+      * [Inputs](#inputs)
       * [Event object](#event-object)
    * [Examples](#examples)
    * [How to contribute](#how-to-contribute)
@@ -101,7 +103,7 @@ Event object
 ============
 the event object that is passed to each of these fired events allow for similiar functionality as that of a standard DOM event listener
 
-##### event.preventDefault()
+#### event.preventDefault()
 When called from a pre DOM update listener can be used to prevent the DOM from updating
 ```
  // innerHTML, textContent, appendChild, etc
@@ -111,7 +113,7 @@ When called from a pre DOM update listener can be used to prevent the DOM from u
  input.addEventListener('value', function(e){ e.preventDefault(); });
 ```
 
-##### event.stop()
+#### event.stop()
 When called from a pre DOM update listener can be used to stop the post DOM update events from firing
 ```
  node.addEventListener('innerHTML', function(e){ e.stop(); });
@@ -120,38 +122,38 @@ When called from a pre DOM update listener can be used to stop the post DOM upda
  node.addEventListener('innerHTMLupdate', console.log);
 ```
 
-##### event.stopPropogation()
+#### event.stopPropogation()
 When called no bubbled listeners after the current one will fire
 
-##### event.stopImmediatePropogation()
+#### event.stopImmediatePropogation()
 When called no listeners after the current one will fire
 
-##### event.action
+#### event.action
 This property shows the returning value of a executed function when looked at in a post DOM update listener
 
-##### event.value
+#### event.value
 Shows the value the is being set
 
-##### event.oldValue
+#### event.oldValue
 Shows the previous value of the item being set
 
 All other event properties follow the same guideline as a standard Event object
 
 Examples
 ========
-##### Element changes
+#### Element changes
 Don't allow an element to have any html changes
 ```
  var node = document.querySelector('selector');
  node.addEventListener('html',function(e){e.preventDefault();});
 ```
 
-##### Validation
+#### Validation
 Validate inputs to see if a given value is allowed.
 You can use `return false;` or `event.preventDefault();` to stop the input from updating
 ```
  var input = document.querySelector('selector');
- input.addEventListener('value',function(e){ return /^[0-9A-Za-z]+$/.test(s); });
+ input.addEventListener('value',function(e){ return /^[0-9A-Za-z]+$/.test(e.value); });
 ```
 
 How to contribute
