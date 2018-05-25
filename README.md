@@ -22,7 +22,7 @@ Table of contents
 
 What is it?
 ==========
-This library allows you to use event listeners in such a manner as standard events to listen to changes from anything that happens on the DOM, form listening to when html changes to when a style gets set or even when a value on an input changes
+This library allows you to use event listeners in such a manner as standard events to listen to changes from anything that happens on the DOM, from listening to when html changes to when a style gets set or even when a value on an input changes
 
 Installation
 ============
@@ -36,6 +36,7 @@ Getting started
 ============
 The script can be loaded both in the head and in the body. 
 All functionality is automatically loaded as soon as the file is loaded.
+*Note: include this script before any other scripts for proper implementation* 
 ```
  <script src="/(node_modules|bower_modules)/pikantny/init.min.js"></script>
 ```
@@ -77,7 +78,7 @@ Properties of an element also allow listening for any changes
 
 Functions
 ==========
-Any element methods also allow listening for executions
+Any element methods allow listening for their execution
 ```
  node.addEventListener('appendChild', console.log);
  node.appendChild(input);
@@ -85,7 +86,7 @@ Any element methods also allow listening for executions
 
 Styles
 ======
-Styles associated with the styles obect or styles attribute also allow listening for any changes, each respective listener will fire if multiple are set in the style attribute as well
+Styles associated with the styles obect or styles attribute also allow listening for any changes, each respective listener will fire if multiple are set in the style attribute
 ```
  node.addEventListener('color', console.log);
  node.style.color = '#000';
@@ -102,10 +103,10 @@ Input value changes also allow listening for any changes and are IME compatible
 
 Event object
 ============
-the event object that is passed to each of these fired events allow for similiar functionality as that of a standard DOM event listener
+The event object that is passed to each of these fired events allow for similiar functionality as that of a standard DOM event listener
 
 #### event.preventDefault()
-When called from a pre DOM update listener can be used to prevent the DOM from updating
+When called from a pre DOM update event, this method can be used to prevent the DOM from updating
 ```
  // innerHTML, textContent, appendChild, etc
  node.addEventListener('html', function(e){ e.preventDefault(); });
@@ -115,7 +116,7 @@ When called from a pre DOM update listener can be used to prevent the DOM from u
 ```
 
 #### event.stop()
-When called from a pre DOM update listener can be used to stop the post DOM update events from firing
+When called from a pre DOM update event, this method can be used to stop the post DOM update events from firing
 ```
  node.addEventListener('innerHTML', function(e){ e.stop(); });
  
@@ -130,15 +131,16 @@ When called no bubbled listeners after the current one will fire
 When called no listeners after the current one will fire
 
 #### event.action
-This property shows the returning value of a executed function when looked at in a post DOM update listener
+This property shows the returning value of a executed function when looked at in a post DOM update event
 
 #### event.value
-Shows the value the is being set
+Shows the value that is being set
 
 #### event.oldValue
 Shows the previous value of the item being set
 
 All other event properties follow the same guideline as a standard Event object
+
 
 Examples
 ========
