@@ -17,11 +17,7 @@
   
   *** issues with styles resetting the descriptor (Garbage collection issue),
       found chrome bug, ref: https://bugs.chromium.org/p/chromium/issues/detail?id=782776
-      doesn't break in KB `research workaround`
-  
-  Bugs:
-  *** need to integrate key translator, input preSet not showing the correct value ***
-  *** valueupdate not firing on inputs ***
+	  -- workaround using __pikantnyExtensions__.__GCSTYLEFIX__ = element.style;
 */
 
 /* TODO */
@@ -283,13 +279,13 @@ window.pikantny = (function(){
   {
     /* listeners array */
     var _looper = looper,
-        _len = looper.length,
+        _len = _looper.length,
         _e = e,
         _x;
     for(_x=0;_x<_len;_x++)
     {
       /* loop and call listeners */
-      if(looper[_x](_e) === false) _e.__preventDefault__ = true;
+      if(_looper[_x](_e) === false) _e.__preventDefault__ = true;
       
       /* if stopImmediatePropogation method was called then we stop calling listeners on this node  */
       if(_e.__stopImmediatePropogation__) break;
@@ -301,17 +297,17 @@ window.pikantny = (function(){
   { 
     /* bubbled listeners array */
     var _looper = looper,
-        _len = looper.length,
+        _len = _looper.length,
         _e = e,
         _x;
     
     for(_x=0;_x<_len;_x++)
     {
       /* get the parent node for the event */
-      _e.target = looper[_x].parent;
+      _e.target = _looper[_x].parent;
       
       /* call bubbled parent node listeners */
-      looper[_x].func(_e);
+      _looper[_x].func(_e);
       
       /* stop bubbling if stopImmediatePropogation or stopPropogation is called */
       if(_e.__stopPropogation__ !== undefined) break;
@@ -1887,7 +1883,7 @@ window.pikantny = (function(){
       __list = __extensions.__styleList__ = [];
       
       /* Chrome likes to randomly GC the style object, if we have a pointer to the style object GC ignores it  */
-      __extensions.__GCStyleFix__ = __element.style;
+      __extensions.__GCSTYLEFIX__ = __element.style;
       
       Object.defineProperty(__element.style,'setProperty',descriptorCSSSetProperty(__element));
       Object.defineProperty(__element.style,'removeProperty',descriptorCSSRemoveProperty(__element));
