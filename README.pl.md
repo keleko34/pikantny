@@ -1,5 +1,5 @@
 # Pikantny
-> Rozszerzenie słuchania zdarzeń DOM o atrybuty, właściwości i style
+> Rozszerzenie obserwatorów zdarzeń DOM o atrybuty, właściwości i stylu
 
 [![NPM version][npm-image]][npm-url] [![Gitter][gitter-image]][gitter-url]
 
