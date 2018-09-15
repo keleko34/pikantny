@@ -37,5 +37,32 @@
     "serve-static": "^1.13.1",
     "sinon": "^4.1.2",
     "sinon-chai": "^2.14.0"
+  },
+  "eslintConfig": {
+    "env": {
+      "node": true
+    },
+    "globals": {
+      "getComputedStyle": true,
+      "Node": true,
+      "Attr": true,
+      "HTMLElement": true,
+      "EventTarget": true,
+      "Element": true,
+      "HTMLSelectElement": true,
+      "HTMLInputElement": true,
+      "HTMLTextAreaElement": true,
+      "CSSStyleDeclaration": true,
+      "document": true,
+      "window": true,
+      "define": true,
+      "module": true
+    },
+    "rules": {
+      "no-console": "off"
+    },
+    "parserOptions": {
+      "ecmaVersion": 2017
+    }
   }
 }
