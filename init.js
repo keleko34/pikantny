@@ -23,6 +23,7 @@
 /* TODO */
 
 /* add descriptor for attributes.setNamedItems, attributes.removeNamedItems */
+/* work in CSSSpecials and InputIgnores, checkedInputsDescriptor */
 
 "use strict";
 
@@ -64,7 +65,7 @@ window.pikantny = (function(){
                     .concat(Array.prototype.slice.call(getComputedStyle(document.head)))
                     .filter(function(v,i,ar){return (ar.indexOf(v) === i);}),
       
-      __CSSSpecials__ = ['webkit','moz','ms'],
+      __CSSSpecials__ = ['webkit','moz','ms'], // use to concat specials
       
       /* allowing us to see the original events, and to skip observing when using addEventListener */
       __EventList__ = Object.keys(HTMLElement.prototype).filter(function(v){return (v.indexOf('on') === 0);})
@@ -76,7 +77,7 @@ window.pikantny = (function(){
         'tabindex': 'tabIndex'
       },
       
-      __InputIgnores__ = [
+      __InputIgnores__ = [ // use to ignore these inputs on listening
         'submit',
         'button'
       ],
@@ -355,12 +356,15 @@ window.pikantny = (function(){
     var __element = el,
         __children = __querySelectorAll.call(__element,'*'),
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
-        __isMultipleKeys = (typeof key === 'object' && !!key.length);
+        __isMultipleKeys = (typeof key === 'object' && !!key.length),
+        __isUpdate,
+        __listener,
+        __key;
     
     /* standard */
     if(__isMultipleKeys)
     {
-      for(var x=0,len=key.length,__isUpdate,__listener,__key;x<len;x++)
+      for(var x=0,len=key.length;x<len;x++)
       {
         __isUpdate = (key[x].indexOf('update') !== -1);
         __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners');
@@ -375,9 +379,9 @@ window.pikantny = (function(){
     }
     else
     {
-      var __isUpdate = (key.indexOf('update') !== -1),
-          __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners'),
-          __key = (key.replace('update',''));
+      __isUpdate = (key.indexOf('update') !== -1);
+      __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners');
+      __key = (key.replace('update',''));
       
       if(!__extensions[__listener][__key]) __extensions[__listener][__key] = [];
       __extensions[__listener][__key].push(func);
@@ -408,25 +412,32 @@ window.pikantny = (function(){
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
         __isMultipleKeys = (typeof key === 'object' && !!key.length),
         __stringFunc = func.toString(),
-        __listeners = [];
+        __listeners = [],
+        __isUpdate,
+        __listener,
+        __key,
+        i,
+        lenn;
     
     /* standard */
     if(__isMultipleKeys)
     {
-      for(var x=0,len=key.length,listeners,__isUpdate,__listener,__key;x<len;x++)
+      for(var x=0,len=key.length;x<len;x++)
       {
         __isUpdate = (key[x].indexOf('update') !== -1);
         __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners');
         __key = (key[x].replace('update',''))
         
-        listeners = __extensions[__listener][__key];
-        if(!!listeners)
+        __listeners = __extensions[__listener][__key];
+        if(__listeners)
         {
-          inner:for(var i=0,lenn=listeners.length;i<lenn;i++)
+          i = 0;
+          lenn = __listeners.length;
+          inner:for(i;i<lenn;i++)
           {
-            if(listeners[i].toString() === __stringFunc)
+            if(__listeners[i].toString() === __stringFunc)
             {
-              listeners.splice(i,1);
+              __listeners.splice(i,1);
               break inner;
             }
           }
@@ -438,14 +449,16 @@ window.pikantny = (function(){
     }
     else
     {
-      var __isUpdate = (key.indexOf('update') !== -1),
-          __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners'),
-          __key = (key.replace('update',''));
+      __isUpdate = (key.indexOf('update') !== -1);
+      __listener = (!__isUpdate ? 'attrListeners' : 'attrUpdateListeners');
+      __key = (key.replace('update',''));
       
       __listeners = __extensions[__listener][__key];
-      if(!!__listeners)
+      if(__listeners)
       {
-        inner:for(var i=0,lenn=__listeners.length;i<lenn;i++)
+        i = 0;
+        lenn = __listeners.length;
+        inner:for(i;i<lenn;i++)
         {
           if(__listeners[i].toString() === __stringFunc)
           {
@@ -467,11 +480,11 @@ window.pikantny = (function(){
         __listener = (!__isUpdate ? 'parentAttrListeners' : 'parentAttrUpdateListeners'),
         __key = (key.replace('update',''));
     
-    outer:for(var x=0,len=children.length,ext,listeners;x<len;x++)
+    for(var x=0,len=children.length,ext,listeners;x<len;x++)
     {
       ext = (children[x].__pikantnyExtensions__ || attachLocalBinders(children[x]));
       listeners = ext[__listener][__key];
-      if(!!listeners)
+      if(listeners)
       {
         inner:for(var i=0,lenn=listeners.length;i<lenn;i++)
         {
@@ -900,7 +913,7 @@ window.pikantny = (function(){
     var __descriptor = descriptor,
         __key = key,
         __extended = extended,
-        __descVal = descriptor.value,
+        __descVal = __descriptor.value,
         __set = _setStandard,
         __update = _updateStandard,
         __extensions = {},
@@ -1032,7 +1045,7 @@ window.pikantny = (function(){
           if(__key === 'style')
           {
             /* splits a inline style: "margin:10px;padding:5px;" into an object {margin:"10px",padding:"5px"} */
-            __cssRules = getCSSTextChanges(__oldValue,value);
+            __cssRules = getCSSTextChanges(__oldValue,v);
             
             /* loop and set, when set the attribute is automatically updated */
             for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
@@ -1155,7 +1168,8 @@ window.pikantny = (function(){
     /* closured descriptor, used methods and local var's for increased perf */
     var __oldValue = (this.attributes.getNamedItem(key) ? this.attributes.getNamedItem(key).value : null),
         __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this)),
-        __cssRules;
+        __cssRules,
+        __currentKey;
     
     /* run the pre value remove listeners for the method and the attr name */
     if(_setStandard(this,'removeAttribute',undefined,undefined,__extensions,__extensions.stop,arguments))
@@ -1166,11 +1180,11 @@ window.pikantny = (function(){
         if(key === 'style')
         {
           /* convert string to object */
-          __cssRules = getCSSTextChanges(__oldValue,value);
-          for(var x=0,keys=Object.keys(__cssRules),len=keys.length,key;x<len;x++)
+          __cssRules = getCSSTextChanges(__oldValue,undefined);
+          for(var x=0,keys=Object.keys(__cssRules),len=keys.length;x<len;x++)
           {
-            key = keys[x];
-            this.style[key] = __cssRules[key]
+            __currentKey = keys[x];
+            this.style[__currentKey] = __cssRules[__currentKey]
           }
         }
         
@@ -1369,6 +1383,19 @@ window.pikantny = (function(){
   /* note, need to add into account bubbled listeners on nodes that are post inserted into the dom */
   /* .__pikantnyExtensions__.attrListeners, .__pikantnyExtensions__.parentAttrListeners */
   
+  function loop(els)
+  {
+    var __len = els.length,
+        __ext,
+        __x;
+
+    for(__x=0;x<__len;x++)
+    {
+      __ext = (els[__x].__pikantnyExtensions__ || attachLocalBinders(els[__x]))
+      if(!__ext.injectedInput) attachInputListeners(els[__x]);
+    }
+  }
+  
   function processEvent(key,func)
   {
     /* handle inline css change listeners, attribute, and cssText, setProperty, classList */
@@ -1376,23 +1403,27 @@ window.pikantny = (function(){
         __extensions = __element.__pikantnyExtensions__,
         __truekey = key.replace('update',''),
         __cssInlineKey = getInlineKey(__truekey),
-        __cssSpecial = __cssInlineKey.match(/(webkit|moz|ms)/);
+        __cssSpecial = __cssInlineKey.match(/(webkit|moz|ms)/),
+        __children,
+        __len,
+        __x;
     
     /* in case we have a css proeprty we need to inject the style object for that style */
     if(__CSSList__.indexOf(__cssInlineKey) !== -1 || (__cssSpecial && __cssSpecial.index === 0))
     {
+      __children = __querySelectorAll.call(__element,'*');
+      __len = __children.length;
+      __x = 0;
+      
       var __cssKey = getStyleKey(__truekey),
           __hasUpdate = (key.indexOf('update') !== -1 ? 'update' : ''),
-          __children = __querySelectorAll.call(__element,'*'),
-          __len = __children.length,
-          __ext,
-          __x;
+          __ext;
           
       if(!__extensions.__styleList__ || __extensions.__styleList__.indexOf(__cssInlineKey) === -1)
       {
         processNewStyle(__element,__cssInlineKey);
       }   
-      for(__x=0;__x<__len;__x++)
+      for(__x;__x<__len;__x++)
       {
         __ext = (__children[__x].__pikantnyExtensions__ || attachLocalBinders(__children[__x]))
         if(!__ext.__styleList__ || __ext.__styleList__.indexOf(__cssInlineKey) === -1) processNewStyle(__children[__x],__cssInlineKey);
@@ -1417,19 +1448,6 @@ window.pikantny = (function(){
             __textareas = __querySelectorAll.call(__element,'textarea'),
             __select = __querySelectorAll.call(__element,'select');
         
-        function loop(els)
-        {
-          var __len = els.length,
-              __ext,
-              __x;
-          
-          for(__x=0;x<__len;x++)
-          {
-            __ext = (els[__x].__pikantnyExtensions__ || attachLocalBinders(els[__x]))
-            if(!__ext.injectedInput) attachInputListeners(els[__x]);
-          }
-        }
-        
         /* loop all */
         if(key === 'value')
         {
@@ -1453,12 +1471,12 @@ window.pikantny = (function(){
     /* in case we are trying to listen to class or className we should inject the classList as well */
     else if(['class','className'].indexOf(__truekey) !== -1)
     {
-      var __children = __querySelectorAll.call(__element,'*'),
-          __len = __children.length,
-          __x;
+      __children = __querySelectorAll.call(__element,'*');
+      __len = __children.length;
+      __x = 0;
       
       processClassList(__element,__element.classList);
-      for(__x=0;__x<__len;__x++)
+      for(__x;__x<__len;__x++)
       {
         processClassList(__children[__x],__children[__x].classList);
       }
@@ -1466,13 +1484,42 @@ window.pikantny = (function(){
     else if(__GlobalNodes__.indexOf(__element) === -1 && __element.getAttribute(__truekey) === null && !__element[__truekey] && __NonTraditional__.indexOf(__truekey) === -1)
     {
       processNewAttr(__element,__truekey);
-      var __children = __querySelectorAll.call(__element,'*');
-      for(var x=0,len=__children.length;x<len;x++)
+      var __childNodes = __querySelectorAll.call(__element,'*');
+      for(var x=0,len=__childNodes.length;x<len;x++)
       {
-        processNewAttr(__children[x],__truekey);
+        processNewAttr(__childNodes[x],__truekey);
       }
     }
     attachAttrEvent(__element,key,func);
+  }
+  
+  /* need to check if listeners are on attrListeners and not to remove if so */
+  function loopRemove(els, key, truekey)
+  {
+    var __len = els.length,
+        __key = truekey,
+        __ext,
+        __el,
+        __x = 0;
+
+    for(__x;x<__len;x++)
+    {
+      __el = els[x];
+      __ext = __el.__pikantnyExtensions__;
+      if(__ext)
+      {
+        if(['INPUT','TEXTAREA','SELECT'].indexOf(__el.nodeName) !== -1)
+        {
+          if(isLastAttrListener(__ext,__key))
+          {
+            if(isLastParentAttrListener(__ext,__key))
+            {
+              removeTypeListeners(__el.type,__el);
+            }
+          }
+        }
+      }
+    }
   }
   
   /* only removes non bubbled, so we then just must remove none and ignore if has bubbled */
@@ -1509,54 +1556,24 @@ window.pikantny = (function(){
         {
           var __inputs = __querySelectorAll.call(__element,'input'),
               __textareas = __querySelectorAll.call(__element,'textarea'),
-              __select = __querySelectorAll.call(__element,'select'),
-              __removeTypeListeners = removeTypeListeners;
-
-          /* need to check if listeners are on attrListeners and not to remove if so */
-          function loop(els)
-          {
-            var __len = els.length,
-                __key = __truekey,
-                __ext,
-                __el,
-                __x;
-
-            for(__x=0;x<len;x++)
-            {
-              __el = els[x];
-              __ext = __el.__pikantnyExtensions__;
-              if(__ext)
-              {
-                if(['INPUT','TEXTAREA','SELECT'].indexOf(__el.nodeName) !== -1)
-                {
-                  if(isLastAttrListener(__ext,__key))
-                  {
-                    if(isLastParentAttrListener(__ext,__key))
-                    {
-                      __removeTypeListeners(__el.type,__el);
-                    }
-                  }
-                }
-              }
-            }
-          }
+              __select = __querySelectorAll.call(__element,'select');
 
           /* loop all */
           if(key === 'value')
           {
-            loop(__inputs,key);
-            loop(__textareas,key);
-            loop(__select,key);
+            loopRemove(__inputs,key, __truekey);
+            loopRemove(__textareas,key, __truekey);
+            loopRemove(__select,key, __truekey);
           }
           /* loop only inputs */
           else if(key === 'checked')
           {
-            loop(__inputs,key);
+            loopRemove(__inputs,key, __truekey);
           }
           /* loop only select */
           else
           {
-            loop(__select,key);
+            loopRemove(__select,key, __truekey);
           }
         }
       }
@@ -1572,7 +1589,13 @@ window.pikantny = (function(){
     var __extensions = (el.__pikantnyExtensions__ || attachLocalBinders(el)),
         __events = __extensions.events,
         __local = __events[key],
-        __children = __querySelectorAll.call(el,'*');
+        __children = __querySelectorAll.call(el,'*'),
+        x,
+        len,
+        child,
+        ext,
+        events,
+        local;
     
     /* create associated events array if it does not exist */
     if(!__local) __local = __events[key] = [];
@@ -1582,7 +1605,10 @@ window.pikantny = (function(){
     {
       __local.splice(__local.indexOf((oldValue || value)),1);
       
-      for(var x=0,len=__children.length,child,ext,events,local;x<len;x++)
+      x = 0;
+      len = __children.length;
+      
+      for(x;x<len;x++)
       {
         child = __children[x];
         ext = (child.__pikantnyExtensions__ || attachLocalBinders(child));
@@ -1600,8 +1626,10 @@ window.pikantny = (function(){
     if(!remove)
     {
       __events[key][__local.length] = value;
+      x = 0;
+      len = __children.length;
       
-      for(var x=0,len=__children.length,child,ext,events,local;x<len;x++)
+      for(x;x<len;x++)
       {
         child = __children[x];
         ext = (child.__pikantnyExtensions__ || attachLocalBinders(child));
@@ -1742,7 +1770,7 @@ window.pikantny = (function(){
         __standardExists,
         __action = undefined;
     
-    function set(key,v,priority)
+    function set(key,v)
     {
       if(typeof v === 'string' && v.length === 0) return (__proto.removeProperty(key));
       
@@ -1851,17 +1879,18 @@ window.pikantny = (function(){
   function getCSSTextChanges(oldValue,value)
   { 
     /* split string rules using `;` and `:` into a key:value pair object */
-    var __cssRules = value.split(';').reduce(function(style,v,x){
-          var split = v.split(':'),
-          prop = getInlineKey(split[0]),
-          value = split[1]; 
-          style[prop] = value;
-          
-          return style;
-        },{});
+    var __cssRules = value.split(';')
+    .reduce(function(style,v){
+      var split = v.split(':'),
+      prop = getInlineKey(split[0]),
+      value = split[1]; 
+      style[prop] = value;
+
+      return style;
+    },{});
     
     /* loop over and check oldValue for ones that were removed and set them to empty values to be removed properly */
-    for(var x=0,oldSplit=oldValue.split(';'),len=oldSplit.length,split,prop,value;x<len;x++)
+    for(var x=0,oldSplit=oldValue.split(';'),len=oldSplit.length,split,prop;x<len;x++)
     {
       split = oldSplit[x].split(':');
       prop = getInlineKey(split[0]);
@@ -1987,7 +2016,7 @@ window.pikantny = (function(){
   }
   
   /* in the case a input paste happens before any typing */
-  function inputFocusEvent(e)
+  function inputFocusEvent()
   {
     var __element = this,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
@@ -2164,7 +2193,7 @@ window.pikantny = (function(){
   }
   
   /* to add multiLingual IME keyboard support */
-  function inputCompositionStart(e)
+  function inputCompositionStart()
   {
     var __element = this,
         __extensions = __element.__pikantnyExtensions__;
@@ -2205,7 +2234,7 @@ window.pikantny = (function(){
   }
   
   /* non standard inputs such as new html5 inputs */
-  function nonStandardInputFocusEvent(e)
+  function nonStandardInputFocusEvent()
   {
     var __element = this,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
@@ -2268,7 +2297,7 @@ window.pikantny = (function(){
   }
   
   /* radio elements */
-  function radioFocusEvent(e)
+  function radioFocusEvent()
   {
     var __element = this,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
@@ -2326,7 +2355,7 @@ window.pikantny = (function(){
     return true;
   }
   
-  function radioKeyUpEvent(e)
+  function radioKeyUpEvent()
   {
     var __element = this,
         __extensions = __element.__pikantnyExtensions__;
@@ -2405,7 +2434,7 @@ window.pikantny = (function(){
   }
   
   /* select elements */
-  function selectFocusEvent(e)
+  function selectFocusEvent()
   {
     var __element = this,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element));
@@ -2690,22 +2719,30 @@ window.pikantny = (function(){
         __attr = Object.keys(__extensions.attrListeners),
         __attrUpdate = Object.keys(__extensions.attrUpdateListeners),
         __domEvents = Object.keys(__extensions.events),
-        __events = {};
+        __events = {},
+        x = 0,
+        len = __attr.length;
     
     /* loop standard attribute events */
-    for(var x=0,len=__attr.length;x<len;x++)
+    for(x;x<len;x++)
     {
       __events[__attr[x]] = __extensions.attrListeners[__attr[x]].slice();
     }
     
+    x = 0;
+    len = __attrUpdate.length;
+    
     /* loop update attribute events */
-    for(var x=0,len=__attrUpdate.length;x<len;x++)
+    for(x;x<len;x++)
     {
       __events[__attrUpdate[x]+'update'] = __extensions.attrUpdateListeners[__attrUpdate[x]].slice();
     }
     
+    x = 0;
+    len = __domEvents.length;
+    
     /* loop dom events */
-    for(var x=0,len=__domEvents.length;x<len;x++)
+    for(x;x<len;x++)
     {
       __events[__domEvents[x]] = __extensions.events[__domEvents[x]].slice();
     }
@@ -2719,22 +2756,30 @@ window.pikantny = (function(){
         __attr = Object.keys(__extensions.parentAttrListeners),
         __attrUpdate = Object.keys(__extensions.parentAttrUpdateListeners),
         __domEvents = Object.keys(__extensions.bubbledEvents),
-        __events = {};
+        __events = {},
+        x = 0,
+        len = __attr.length;
     
     /* loop bubbled standard attribute events */
-    for(var x=0,len=__attr.length;x<len;x++)
+    for(x;x<len;x++)
     {
       __events[__attr[x]] = __extensions.parentAttrListeners[__attr[x]].slice();
     }
     
+    x = 0;
+    len = __attrUpdate.length;
+    
     /* loop bubbled update attribute events */
-    for(var x=0,len=__attrUpdate.length;x<len;x++)
+    for(x;x<len;x++)
     {
       __events[__attrUpdate[x]+'update'] = __extensions.parentAttrUpdateListeners[__attrUpdate[x]].slice();
     }
     
+    x = 0;
+    len = __domEvents.length;
+    
     /* loop bubbled dom events */
-    for(var x=0,len=__domEvents.length;x<len;x++)
+    for(x;x<len;x++)
     {
       __events[__domEvents[x]] = __extensions.bubbledEvents[__domEvents[x]].slice();
     }
@@ -2748,7 +2793,7 @@ window.pikantny = (function(){
   /* REGION */
   
   /* main loop for all dom prototypes */
-  for(var x=0,len=__GlobalList__.length,proto;x<len;x++)
+  for(var x=0,len=__GlobalList__.length;x<len;x++)
   {
     if(window[__GlobalList__[x]] !== undefined && window[__GlobalList__[x]].prototype !== undefined) init(__GlobalList__[x],window[__GlobalList__[x]].prototype,window);
   }

@@ -3,7 +3,7 @@
 
 [![NPM version][npm-image]][npm-url] [![Gitter][gitter-image]][gitter-url]
 
-[English](https://github.com/keleko34/pikantny/blob/master/README.md) [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md)
+[English](https://github.com/keleko34/pikantny/blob/master/README.md) - [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md)
 
 Table of contents
 =================
@@ -106,7 +106,7 @@ Input value changes also allow listening for any changes and are IME compatible
 
 Event object
 ============
-The event object that is passed to each of these fired events allow for similiar functionality as that of a standard DOM event listener
+The event object that is passed to each of these fired events allow for similar functionality as that of a standard DOM event listener
 
 #### event.preventDefault()
 When called from a pre DOM update event, this method can be used to prevent the DOM from updating
@@ -128,10 +128,10 @@ When called from a pre DOM update event, this method can be used to stop the pos
 ```
 
 #### event.stopPropogation()
-When called no bubbled listeners after the current one will fire
+When called no bubbled listeners after the current one will fire, including post DOM update
 
 #### event.stopImmediatePropogation()
-When called no listeners after the current one will fire
+When called no listeners after the current one will fire, including post DOM update
 
 #### event.action
 This property shows the returning value of a executed function when looked at in a post DOM update event
@@ -147,7 +147,7 @@ All other event properties follow the same guideline as a standard Event object
 
 Examples
 ========
-#### Element changes
+#### HTML changes
 Don't allow an element to have any html changes
 ```
  var node = document.querySelector('selector');
@@ -174,7 +174,7 @@ If You would like to contribute here are the steps
 2. Install any necessary dev dependencies
 3. build the project `npm run build`
 4. test your changes don't break anything `npm test`
-5. Make a request for your changes :)
+5. Make a pull request on github for your changes :)
 
 License
 =======

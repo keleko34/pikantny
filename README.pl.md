@@ -3,7 +3,7 @@
 
 [![NPM version][npm-image]][npm-url] [![Gitter][gitter-image]][gitter-url]
 
-[English](https://github.com/keleko34/pikantny/blob/master/README.md) [Español](https://github.com/keleko34/pikantny/blob/master/README.es.md) [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md) [Pусский](https://github.com/keleko34/pikantny/blob/master/README.ru.md) [中文](https://github.com/keleko34/pikantny/blob/master/README.zh.md)
+[English](https://github.com/keleko34/pikantny/blob/master/README.md) - [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md)
 
 Spis treści
 =================
@@ -67,7 +67,7 @@ Atrybuty obserwatorów zdarzeń można dodawać w celu wykrycia wszelkich zmian 
 ```
  node.addEventListener('id', console.log);
  node.setAttribute('id','your-id');
- // or 
+ // lub 
  node.id = 'your-id';
 ```
 
@@ -81,7 +81,7 @@ Właściwości elementu pozwalają również obserwować wszelkie zmiany
 
 Funcje
 ==========
-Dowolne metody elementów pozwalają na obserwację ich wykonania
+Dowolne metody elementów pozwalają na obserwację ich przemiany
 ```
  node.addEventListener('appendChild', console.log);
  node.appendChild(input);
@@ -89,7 +89,7 @@ Dowolne metody elementów pozwalają na obserwację ich wykonania
 
 Stylu
 ======
-Styles associated with the styles obect or styles attribute also allow listening for any changes, each respective listener will fire if multiple are set in the style attribute
+CSS w obiekty stylów lub atrybuty stylów pozwalają na obserwację ich przemiany. Każdy odpowiedni detektor uruchomi się, jeśli w atrybucie stylu zostanie ustawionych wiele elementów
 ```
  node.addEventListener('color', console.log);
  node.style.color = '#000';
@@ -99,17 +99,17 @@ Styles associated with the styles obect or styles attribute also allow listening
 
 Inputy
 ======
-Input value changes also allow listening for any changes and are IME compatible
+Zmiany wartości wejściowych pozwalają również na obserwowanie wszelkich zmian i są kompatybilne z IME
 ```
  input.addEventListener('value', console.log);
 ```
 
 Obiekty event
 =============
-The event object that is passed to each of these fired events allow for similiar functionality as that of a standard DOM event listener
+Obiekt zdarzenia, który jest przekazywany do każdego z tych uruchomionych zdarzeń, pozwala na podobną funkcjonalność, jak standardowa funkcja obserwania zdarzeń DOM
 
 #### event.preventDefault()
-When called from a pre DOM update event, this method can be used to prevent the DOM from updating
+Po wywołaniu z zdarzenia poprzedzającego aktualizację DOM można użyć tej metody, aby zapobiec aktualizacji DOM
 ```
  // innerHTML, textContent, appendChild, etc
  node.addEventListener('html', function(e){ e.preventDefault(); });
@@ -119,44 +119,44 @@ When called from a pre DOM update event, this method can be used to prevent the 
 ```
 
 #### event.stop()
-When called from a pre DOM update event, this method can be used to stop the post DOM update events from firing
+Po wywołaniu ze zdarzenia aktualizacji poprzedzającego DOM ta metoda może być użyta do zatrzymania działania aktualizacji po aktualizacjach DOM
 ```
  node.addEventListener('innerHTML', function(e){ e.stop(); });
  
- // this will not fire
+ // to nie będzie działać
  node.addEventListener('innerHTMLupdate', console.log);
 ```
 
 #### event.stopPropogation()
-When called no bubbled listeners after the current one will fire
+Kiedy zostanie wywołany bez bąbelków obserwaty po tym, jak zostanie uruchomiony
 
 #### event.stopImmediatePropogation()
-When called no listeners after the current one will fire
+Po wywołaniu bez obserwować po uruchomieniu aktualnego, w tym aktualizacji DOM
 
 #### event.action
-This property shows the returning value of a executed function when looked at in a post DOM update event
+Ta właściwość pokazuje zwracaną wartość wykonanej funkcji, gdy spojrzymy na nią w wydaniu aktualizacji DOM
 
 #### event.value
-Shows the value that is being set
+Pokazuje ustawioną wartość
 
 #### event.oldValue
-Shows the previous value of the item being set
+Poprzednia wartość ustawianego przedmiotu
 
-All other event properties follow the same guideline as a standard Event object
+Wszystkie pozostałe właściwości zdarzeń są zgodne z tymi samymi wytycznymi, co standardowy obiekt zdarzenia
 
 
 Przykład
 ========
-#### Element changes
-Don't allow an element to have any html changes
+#### Zmiany html
+Nie pozwól, aby element zawierał jakiekolwiek zmiany html
 ```
  var node = document.querySelector('selector');
  node.addEventListener('html',function(e){e.preventDefault();});
 ```
 
 #### Validation
-Validate inputs to see if a given value is allowed.
-You can use `return false;` or `event.preventDefault();` to stop the input from updating
+Sprawdź poprawność danych wejściowych, aby sprawdzić, czy dana wartość jest dozwolona.
+Możesz użyć `return false;` lub `event.preventDefault();` aby zatrzymać aktualizację danych wejściowych
 ```
  var input = document.querySelector('selector');
  input.addEventListener('value',function(e){ return /^[0-9A-Za-z]+$/.test(e.value); });
@@ -164,21 +164,21 @@ You can use `return false;` or `event.preventDefault();` to stop the input from 
 
 Debugowanie
 ===========
-This library supports dev console events panel, all events added will show up in this panel.
+Ten api obsługuje panel zdarzeń konsoli aplikacji, wszystkie dodane wydarzenia pojawią się w tym panelu.
 
 Jak wnieść wkład
 =================
-If You would like to contribute here are the steps
+Jeśli chcesz wnieść swój wkład, wykonaj te kroki
 
-1. Clone Repo: [Pikantny Github Repo](https://github.com/keleko34/pikantny)
-2. Install any necessary dev dependencies
-3. build the project `npm run build`
-4. test your changes don't break anything `npm test`
-5. Make a request for your changes :)
+1. Repozytorium klonów: [Pikantny Github Repo](https://github.com/keleko34/pikantny)
+2. Zainstaluj zależności npm
+3. Zbuduj projekt `npm run build`
+4. Przetestuj swoje zmiany, niczego nie zepsuj `npm test`
+5. Make a pull request on github for your changes :)
 
-License
+Licencja
 =======
-You can view the license here: [License](https://github.com/keleko34/pikantny/blob/master/LICENSE)
+Tutaj możesz zobaczyć licencję: [Licencja](https://github.com/keleko34/pikantny/blob/master/LICENSE)
 
 [npm-url]: https://www.npmjs.com/package/pikantny
 [npm-image]: https://img.shields.io/npm/v/pikantny.svg
