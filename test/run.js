@@ -1,6 +1,6 @@
 var connect = require('connect')(),
     static = require('serve-static'),
-    open = require('open'),
+    open = require('opn'),
     base = process.cwd().replace(/\\/g,'/');
 
 console.info("\033[36mPress ctrl + o to quickly open the default web page in your default browser, ctrl + c will stop the server\033[37m");
