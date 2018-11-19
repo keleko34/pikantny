@@ -22,6 +22,7 @@
 
 /* TODO */
 
+/* add extensions to detached nodes, keep track of detached nodes - needs checks on removeChild, innerHMTL, outerHMTL, creation */
 /* add descriptor for attributes.setNamedItems, attributes.removeNamedItems */
 /* work in CSSSpecials and InputIgnores, checkedInputsDescriptor */
 
@@ -233,7 +234,7 @@ window.pikantny = (function(){
   }
   
   /* This holds all listeners associated with a particular element */
-  function localBinders()
+  function localBinders(pass)
   {
     /* node's property listeners */
     this.attrListeners = {};
@@ -267,6 +268,21 @@ window.pikantny = (function(){
     this.preChecked = '';
     this.descChecked = undefined;
     this.isPressed = false;
+    
+    /* passed extension params */
+    if(pass)
+    {
+      var __keys = Object.keys(pass),
+          __key,
+          __x = 0,
+          __len = __keys.length;
+      
+      for(__x;__x<__len;__x++)
+      {
+        __key = __keys[__x];
+        this[__key] = pass[__key];
+      }
+    }
   }
   
   /* OBJECT CLASSES */
@@ -316,9 +332,9 @@ window.pikantny = (function(){
   }
   
   /* checks if the element has the above extensions, if not it adds them */
-  function attachLocalBinders(el)
+  function attachLocalBinders(el, pass)
   {
-    if(typeof el.__pikantnyExtensions__ === 'undefined') Object.defineProperty(el,'__pikantnyExtensions__',descriptorHidden(new localBinders()));
+    if(typeof el.__pikantnyExtensions__ === 'undefined') Object.defineProperty(el,'__pikantnyExtensions__',descriptorHidden(new localBinders(pass)));
     return el.__pikantnyExtensions__;
   }
   
@@ -607,7 +623,7 @@ window.pikantny = (function(){
       {
         /* fetch current target listeners and parent bubbled listeners */
         var __element = e.srcElement,
-            __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
+            __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element, __element.__pikantnyExtensionsPass__)),
             __children = q.call(__element,'*'),
             __child,
             __childExtensions,

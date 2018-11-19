@@ -1,7 +1,7 @@
 {
   "name": "pikantny",
   "version": "1.2.2",
-  "description": "Heavily extends the ability of event listeners to allow for listening to any and all property changes, dome changes, style changes, and method calls",
+  "description": "Heavily extends the ability of event listeners to allow for listening to any and all property changes, dom changes, style changes, and method calls",
   "main": "init.min.js",
   "scripts": {
     "test": "node ./test/run.js",
@@ -40,21 +40,11 @@
   },
   "eslintConfig": {
     "env": {
-      "node": true
+      "node": true,
+      "browser": true,
+      "mocha": true
     },
     "globals": {
-      "getComputedStyle": true,
-      "Node": true,
-      "Attr": true,
-      "HTMLElement": true,
-      "EventTarget": true,
-      "Element": true,
-      "HTMLSelectElement": true,
-      "HTMLInputElement": true,
-      "HTMLTextAreaElement": true,
-      "CSSStyleDeclaration": true,
-      "document": true,
-      "window": true,
       "define": true,
       "module": true
     },
