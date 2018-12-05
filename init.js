@@ -165,7 +165,7 @@ window.pikantny = (function(){
   /* REGION */
   
   /* The event object that gets passed to each listener */
-  function changeEvent(value,oldValue,target,attr,style,args,action,srcElement,type,stop,cancelable,bubbles)
+  function changeEvent(value,oldValue,target,attr,style,args,action,srcElement,type,stop,cancelable,bubbles, extended)
   {
     /* stops bubbling of event */
     this.stopPropagation = function()
@@ -234,6 +234,9 @@ window.pikantny = (function(){
     
     /* default stopped telling if update listeners should be stopped */
     this.stopped = false;
+    
+    /* if an extended prop was used this will be the original item changed */
+    this.extended = extended;
     
     /* tells if the update listeners have been stopped or not */
     if(stop) this.target.__pikantnyExtensions__.stop = this.stopped = true;
@@ -671,11 +674,11 @@ window.pikantny = (function(){
   /* REGION */
   
   /* runs the associated pre value set listeners */
-  function _setStandard(el, prop, val, oldValue, __extensions, stop, args, action, style)
+  function _setStandard(el, prop, val, oldValue, __extensions, stop, args, action, style, extended)
   {
     /* create event */
-    // value,oldValue,target,attr,style,args,action,srcElement,type,stop,cancelable,bubbles
-    var e = new changeEvent(val,oldValue,el,prop,style,args,action,el,prop,stop);
+    // value,oldValue,target,attr,style,args,action,srcElement,type,stop,cancelable,bubbles,extended
+    var e = new changeEvent(val,oldValue,el,prop,style,args,action,el,prop,stop,undefined,undefined,extended);
     
     /* get standard and bubbled listeners */
     var localAttrListeners = __extensions.attrListeners,
@@ -716,11 +719,11 @@ window.pikantny = (function(){
   }
   
   /* runs the associated post value set update listeners */
-  function _updateStandard(el, prop, val, oldValue, __extensions, args, action, style)
+  function _updateStandard(el, prop, val, oldValue, __extensions, args, action, style, extended)
   {
     /* create event */
-    // value,oldValue,target,attr,style,args,action,srcElement,type,stop,cancelable,bubbles
-    var e = new changeEvent(val,oldValue,el,prop,style,args,action,el,prop+'update');
+    // value,oldValue,target,attr,style,args,action,srcElement,type,stop,cancelable,bubbles,extended
+    var e = new changeEvent(val,oldValue,el,prop,style,args,action,el,prop+'update',undefined, undefined,undefined,extended);
     /* get standard and bubbled update listeners */
     var localAttrListeners = __extensions.attrUpdateListeners,
         localParentAttrListeners = __extensions.parentAttrUpdateListeners,
@@ -801,7 +804,7 @@ window.pikantny = (function(){
       
       if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop))
       {
-        if(__set(this,__extended,v,__oldValue,__extensions,__extensions.stop))
+        if(__set(this,__extended,v,__oldValue,__extensions,__extensions.stop, undefined, undefined, undefined, __key))
         {
           /* if the default was not prevented, set the value */
           __descSet.call(this,v);
@@ -883,7 +886,7 @@ window.pikantny = (function(){
 
         if(__set(this,__key,v,__oldValue,__extensions,__extensions.stop))
         {
-          if(__set(this,__extended,v,__oldValue,__extensions,__extensions.stop))
+          if(__set(this,__extended,v,__oldValue,__extensions,__extensions.stop, undefined, undefined, undefined, __key))
           {
             /* if the default was not prevented, set the value */
             __descriptor.value = v;
@@ -959,7 +962,7 @@ window.pikantny = (function(){
       /* run the pre method activation listeners */
       if(__set(this,__key,undefined,undefined,__extensions,__extensions.stop,arguments))
       {
-        if(__set(this,__extended,undefined,undefined,__extensions,__extensions.stop,arguments))
+        if(__set(this,__extended,undefined,undefined,__extensions,__extensions.stop,arguments, undefined, undefined, __key))
         {
           /* run the associated method */
           __action = __descVal.apply(this,arguments);
