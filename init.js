@@ -55,7 +55,10 @@ window.pikantny = (function(){
         removeChild: 'html',
         replaceChild: 'html',
         insertAdjacentHTML: 'html',
+        insertAdjacentElement: 'html',
+        insertAdjacentText: 'html',
         insertBefore: 'html',
+        prepend: 'html',
         className: 'class'
       },
       __NonTraditional__ = ['html'],
@@ -198,6 +201,9 @@ window.pikantny = (function(){
     
     /* if the event can bubble */
     this.bubbles = (bubbles || true);
+    
+    /* if the event is currently being propogated */
+    this.bubbled = false;
     
     /* the current value of the property */
     this.value = value;
@@ -687,17 +693,22 @@ window.pikantny = (function(){
     {
       loopListener(localAttrListeners[all],e);
     }
-
-    /* loop bubbled listeners */
-    if(!e.__stopPropogation__ && localParentAttrListeners[prop])
+    
+    if(e.bubbles)
     {
-      loopBubbledListener(localParentAttrListeners[prop],e);
-    }
+      e.bubbled = true;
+    
+      /* loop bubbled listeners */
+      if(!e.__stopPropogation__ && localParentAttrListeners[prop])
+      {
+        loopBubbledListener(localParentAttrListeners[prop],e);
+      }
 
-    /* if a * (all) bubbled listener was added, loop them */
-    if(!e.__stopPropogation__ && localParentAttrListeners[all])
-    {
-      loopBubbledListener(localParentAttrListeners[all],e);
+      /* if a * (all) bubbled listener was added, loop them */
+      if(!e.__stopPropogation__ && localParentAttrListeners[all])
+      {
+        loopBubbledListener(localParentAttrListeners[all],e);
+      }
     }
     
     if(e.__preventDefault__) return false;
@@ -726,17 +737,22 @@ window.pikantny = (function(){
     {
       loopListener(localAttrListeners[all],e);
     }
-
-    /* loop bubbled listeners */
-    if(!e.__stopPropogation__ && localParentAttrListeners[prop])
+    
+    if(e.bubbles)
     {
-      loopBubbledListener(localParentAttrListeners[prop],e);
-    }
+      e.bubbled = true;
 
-    /* if a * (all) bubbled listener was added, loop them */
-    if(!e.__stopPropogation__ && localParentAttrListeners[all])
-    {
-      loopBubbledListener(localParentAttrListeners[all],e);
+      /* loop bubbled listeners */
+      if(!e.__stopPropogation__ && localParentAttrListeners[prop])
+      {
+        loopBubbledListener(localParentAttrListeners[prop],e);
+      }
+
+      /* if a * (all) bubbled listener was added, loop them */
+      if(!e.__stopPropogation__ && localParentAttrListeners[all])
+      {
+        loopBubbledListener(localParentAttrListeners[all],e);
+      }
     }
     
     if(e.__preventDefault__) return false;
@@ -1337,7 +1353,7 @@ window.pikantny = (function(){
   }
   
   /* process Event, controls all listener access */
-  function descriptorAddEventListener(key,func)
+  function descriptorAddEventListener(key,func, options)
   {
     //if(this === document) return console.error("Note* You can not add a listener to the `document` object, use `document.documentElement` instead\n", "This issue is due to IE/Edge bug in regards to not allowing descriptor `document.querySelectorAll` to be used on `document`\n\n", new Error().stack);
     /* closured local var's for increased perf */
@@ -1346,7 +1362,7 @@ window.pikantny = (function(){
     if(_setStandard(this,'addEventListener',undefined,undefined,__extensions,__extensions.stop,arguments))
     {
       /* prior for standard events */
-      __addEventListener.call(this,key,func);
+      __addEventListener.call(this,key,func, options);
 
       if(!__extensions.stop)
       {
@@ -1369,14 +1385,14 @@ window.pikantny = (function(){
   }
   
   /* process event removal, controls listener access removal */
-  function descriptorRemoveEventListener(key,func)
+  function descriptorRemoveEventListener(key,func, options)
   {
     //if(this === document) return console.error("Note* You can not remove a listener from the `document` object, use `document.documentElement` instead\n", "This issue is due to IE/Edge bug in regards to not allowing descriptor `document.querySelectorAll` to be used on `document`\n\n", new Error().stack);
     /* closured local var's for increased perf */
     var __extensions = (this.__pikantnyExtensions__ || attachLocalBinders(this));
     if(_setStandard(this,'removeEventListener',undefined,undefined,__extensions,__extensions.stop,arguments))
     {
-      __removeEventListener.call(this,key,func);
+      __removeEventListener.call(this,key,func, options);
       if(__EventList__.indexOf('on'+key) === -1)
       {
         processEventRemoval.apply(this,arguments);
