@@ -3,7 +3,7 @@
 
 [![NPM version][npm-image]][npm-url] [![Gitter][gitter-image]][gitter-url]
 
-[English](https://github.com/keleko34/pikantny/blob/master/README.md) - [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md)
+[English](https://github.com/keleko34/pikantny/blob/master/README.md) - [Español](https://github.com/keleko34/pikantny/blob/master/README.es.md) - [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md)
 
 Table of contents
 =================
