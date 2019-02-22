@@ -45,6 +45,7 @@ window.pikantny = (function(){
         'dispatchEvent','Symbol','constructor','__proto__','stop','length','setAttribute','removeAttribute', 'addEventListener','removeEventListener','setProperty','removeProperty','getPropertyValue'
       ],
       
+      /* This allows using a single keyword for multiple listener types, May extend this to be allowed to be set by users */
       __Extended__ = {
         textContent: 'html',
         innerHTML: 'html',
@@ -80,21 +81,17 @@ window.pikantny = (function(){
         'class': 'className',
         'tabindex': 'tabIndex'
       },
-      
-      __InputIgnores__ = [ // use to ignore these inputs on listening
+      // use to ignore these input types for listening to value inputs
+      __InputIgnores__ = [
         'submit',
         'button'
       ],
       
-      /* firefox does not fire a keydown event */
+      /* firefox does not fire a keydown event, helps us detect IME keyboards */
       __InputIMEDetect__ = [
         'Unidentified', //IE
         'Process' //Chrome
       ],
-      
-      /* might not be needed */
-      //__CJKUnicodeCharacters__ = /[\u4E00-\u9FCC\u3400-\u4DB5\uFA0E\uFA0F\uFA11\uFA13\uFA14\uFA1F\uFA21\uFA23\uFA24\uFA27-\uFA29]|[\ud840-\ud868][\udc00-\udfff]|\ud869[\udc00-\uded6\udf00-\udfff]|[\ud86a-\ud86c][\udc00-\udfff]|\ud86d[\udc00-\udf34\udf40-\udfff]|\ud86e[\udc00-\udc1d]/g,
-      
       
       /* allows listening for all changes no matter what it is */
       __all__ = '*',
@@ -350,6 +347,7 @@ window.pikantny = (function(){
   /* note, need to add into account bubbled listeners on nodes that are post inserted into the dom */
   /* .__pikantnyExtensions__.attrListeners, .__pikantnyExtensions__.parentAttrListeners */
   
+  /* Helps us to remove the inputs oninput listeners when there are no more input related listeners */
   function isLastAttrListener(extension,key)
   {
     if(extension.attrListeners[key])
@@ -523,16 +521,19 @@ window.pikantny = (function(){
     }
   }
   
+  /* helps with listening to attibutes when a new one is added */
   function processNewAttr(el,key)
   {
     return Object.defineProperty(el,key,descriptorValue({value:undefined,writable:true,enumerable:true,configurable:true},key));
   }
   
+  /* helps to listen to style changes when a inline style is set */
   function processNewStyle(el,key)
   {
     return Object.defineProperty(el.style,key,descriptorInlineStyle(el,key));
   }
   
+  /* helps for listening when a classname is changed */
   function processClassList(element, classList)
   {
     if(!classList.__add)
@@ -545,6 +546,7 @@ window.pikantny = (function(){
     }
   }
   
+  /* watches for html changes so as to allow listening on the new elements properties */
   function attachHtmlWatcher()
   {
     var q = __querySelectorAll;
