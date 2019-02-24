@@ -41,7 +41,7 @@ API może mieć znacznik HTML Script w strony u góry lub u dołu.
 Wszystkie funkcje są ładowane automatycznie po załadowaniu pliku.
 *Uwaga: dołącz ten API przed jakimkolwiek innym javascript do prawidłowej implementacji* 
 ```
- <script src="/(node_modules|bower_modules)/pikantny/init.min.js"></script>
+ <script src="/(node_modules|bower_modules)/pikantny/pikantny.min.js"></script>
 ```
 
 Aby rozpocząć używanie standardowe obserwatorów zdarzeń metody

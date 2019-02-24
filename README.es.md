@@ -41,7 +41,7 @@ El script se puede cargar tanto en la cabecera como en el cuerpo.
 Toda la funcionalidad se carga automáticamente tan pronto como se carga el archivo.
 * Nota: incluya este script antes que cualquier otro script para una implementación adecuada *
 ```
- <script src="/(node_modules|bower_modules)/pikantny/init.min.js"></script>
+ <script src="/(node_modules|bower_modules)/pikantny/pikantny.min.js"></script>
 ```
 
 Comenzar a usarlo es tan simple como usar su método de escucha estándar

@@ -41,7 +41,7 @@ The script can be loaded both in the head and in the body.
 All functionality is automatically loaded as soon as the file is loaded.
 *Note: include this script before any other scripts for proper implementation* 
 ```
- <script src="/(node_modules|bower_modules)/pikantny/init.min.js"></script>
+ <script src="/(node_modules|bower_modules)/pikantny/pikantny.min.js"></script>
 ```
 
 To start using it is as simple as just using your standard listener method
