@@ -10,4 +10,11 @@ flags.compilationLevel = 'SIMPLE';
 
 fs.writeFileSync(base+'/pikantny.min.js',closureCompiler(flags).compiledCode);
 
+/* Temporary backwards compatibility */
+flags = {};
+flags.jsCode = [{src: fs.readFileSync(base+'/init.js','utf8')}];
+flags.compilationLevel = 'SIMPLE';
+
+fs.writeFileSync(base+'/init.min.js',closureCompiler(flags).compiledCode);
+
 console.log("Finished Building Minified Library..");
