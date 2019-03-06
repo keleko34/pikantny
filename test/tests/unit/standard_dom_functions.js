@@ -1,5 +1,17 @@
 var standardDomFunction = (function(){
-
+  
+  function newEvent(eventName) {
+      var event;
+      if (typeof(Event) === 'function') {
+          event = new Event(eventName);
+      } else {
+          event = document.createEvent('Event');
+          event.type = eventName;
+          event.initEvent(eventName, true, true);
+      }
+      return event;
+  }
+  
   return function(describe,it,expect,spy,timer)
   {
     var methods = [
@@ -345,7 +357,7 @@ var standardDomFunction = (function(){
             expect(__currentNode.innerHTML).to.equal(__oldValue);
           break;
           case 'addEventListener':
-            var __event = new Event(__listener);
+            var __event = newEvent(__listener);
             __currentNode.dispatchEvent(__event);
             
             expect(__callback.callCount).to.equal((pre ? 0 : 1));

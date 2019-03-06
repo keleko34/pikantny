@@ -100,9 +100,11 @@ function timer(key,index)
   }
 }
 
-function getElementsByText(str, tag = 'a') 
+function getElementsByText(str, tag)
 {
-  return Array.prototype.slice.call(document.getElementsByTagName(tag)).filter(el => el.textContent.trim() === str.trim())[0];
+  if(!tag) tag = 'a';
+  return Array.prototype.slice.call(document.getElementsByTagName(tag))
+  .filter(function(el){ return (el.textContent.trim() === str.trim()) })[0];
 }
 
 function getDurationsInTest(key)
@@ -122,8 +124,9 @@ function trackTestTime(key)
   afterEach(function(){
 
     var durations = getDurationsInTest(key),
-        index = (durations.length - 1),
-        performance = durations[index].parentElement.appendChild(document.createElement('span')),
+        index = (durations.length - 1);
+    if(!durations[index]) return;
+    var performance = durations[index].parentElement.appendChild(document.createElement('span')),
         time = perf.getTime(durations[index]),
         oldTime = (perf.getLastTime() || 0);
     

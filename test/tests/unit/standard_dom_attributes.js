@@ -42,7 +42,7 @@ var standardDomAttributes = (function(){
         __node.setAttribute(key,__value);
         expect(__node.getAttribute(key)).to.equal(__value);
 
-        __node[__oldValue !== null ? 'setAttribute' : 'removeAttribute'](key,__oldValue);
+        __node[(__oldValue !== null ? 'setAttribute' : 'removeAttribute')](key,__oldValue);
         expect(__node.getAttribute(key)).to.equal(__oldValue);
         done();
       });
@@ -330,7 +330,7 @@ var standardDomAttributes = (function(){
     describe("STANDARD DOM ATTRIBUTES:",function(){
       runCategory("disabled","true",'#test_element','#test_element__sub');
       runCategory("role","button",'#test_element','#test_element__sub');
-      runCategory("onkeyup","function(e){}",'#test_element','#test_element__sub'); //issue with IE?
+      runCategory("onkeyup","(function(e){})",'#test_element','#test_element__sub'); //issue with IE?
       runCategory("data-custom","500",'#test_element','#test_element__sub');
     });
   }

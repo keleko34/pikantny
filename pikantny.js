@@ -67,7 +67,7 @@ window.pikantny = (function(){
       /* helps with easier style listening changes as .style is an object created afterwards and acts differently than your standard dom property */
       __CSSList__ = Object.getOwnPropertyNames(document.head.style)
                     .concat(Object.getOwnPropertyNames(document.head.style.__proto__))
-                    .concat(Array.prototype.slice.call(getComputedStyle(document.head)))
+                    .concat((CSSStyleDeclaration ? Object.getOwnPropertyNames(CSSStyleDeclaration.prototype) : []))
                     .filter(function(v,i,ar){return (ar.indexOf(v) === i);}),
       
       __CSSSpecials__ = ['webkit','moz','ms'], // use to concat specials
@@ -102,8 +102,8 @@ window.pikantny = (function(){
   
   /* DESCRIPTOR LOCALS */
   /* REGION */
-  
-      /* backup to allow complex listening actions */
+  if(typeof EventTarget === 'undefined') window.EventTarget = Node;
+      /* backup to allow complex listening actions, Check is for IE as EventTarget does not exist in IE */
   var __addEventListener = EventTarget.prototype.addEventListener,
       __removeEventListener = EventTarget.prototype.removeEventListener,
 
@@ -1796,7 +1796,6 @@ window.pikantny = (function(){
     var __proto = element.style,
         __element = element,
         __descSet = __proto.setProperty,
-        __cssList = __CSSList__,
         __getInlineKey = getInlineKey,
         __getStyleKey = getStyleKey,
         __keyInline,
@@ -1848,7 +1847,6 @@ window.pikantny = (function(){
     var __proto = element.style,
         __element = element,
         __descSet = __proto.removeProperty,
-        __cssList = __CSSList__,
         __getInlineKey = getInlineKey,
         __getStyleKey = getStyleKey,
         __keyInline,
