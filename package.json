@@ -1,6 +1,6 @@
 {
   "name": "pikantny",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "Heavily extends the ability of event listeners to allow for listening to any and all property changes, dom changes, style changes, and method calls",
   "main": "pikantny.min.js",
   "scripts": {
