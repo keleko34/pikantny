@@ -316,7 +316,7 @@ window.pikantny = (function(){
       /* Reset length in case any listeners are removed from the list */
       if(_len !== _looper.length)
       {
-        x = Math.max(x - (_len - _looper.length), 0);
+        x = Math.max(x - (_len - _looper.length), -1);
         _len = _looper.length;
       }
     }
@@ -345,7 +345,7 @@ window.pikantny = (function(){
       /* Reset length in case any listeners are removed from the list */
       if(_len !== _looper.length)
       {
-        x = Math.max(x - (_len - _looper.length), 0);
+        x = Math.max(x - (_len - _looper.length), -1);
         _len = _looper.length;
       }
     }
