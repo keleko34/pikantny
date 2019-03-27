@@ -313,8 +313,12 @@ window.pikantny = (function(){
       /* if stopImmediatePropogation method was called then we stop calling listeners on this node  */
       if(_e.__stopImmediatePropogation__) break;
       
-      /* Reset length in case a listener removed one from the list */
-      _len = _looper.length;
+      /* Reset length in case any listeners are removed from the list */
+      if(_len !== _looper.length)
+      {
+        x = Math.max(x - (_len - _looper.length), 0);
+        _len = _looper.length;
+      }
     }
   }
   
@@ -338,8 +342,12 @@ window.pikantny = (function(){
       /* stop bubbling if stopImmediatePropogation or stopPropogation is called */
       if(_e.__stopPropogation__ !== undefined) break;
       
-      /* Reset length in case a listener removed one from the list */
-      _len = _looper.length;
+      /* Reset length in case any listeners are removed from the list */
+      if(_len !== _looper.length)
+      {
+        x = Math.max(x - (_len - _looper.length), 0);
+        _len = _looper.length;
+      }
     }
   }
   
