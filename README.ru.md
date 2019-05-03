@@ -1,51 +1,49 @@
 # Pikantny
-> Extending DOM event listening to include attributes, properties, and styles
+> Расширение прослушивания событий DOM для включения атрибутов, свойств и стилей
 
 [![NPM version][npm-image]][npm-url] [![Gitter][gitter-image]][gitter-url]
 
-[English](https://github.com/keleko34/pikantny/blob/master/README.md) [Español](https://github.com/keleko34/pikantny/blob/master/README.es.md) [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md) [Pусский](https://github.com/keleko34/pikantny/blob/master/README.ru.md) [中文](https://github.com/keleko34/pikantny/blob/master/README.zh.md)
+[English](https://github.com/keleko34/pikantny/blob/master/README.md) - [Español](https://github.com/keleko34/pikantny/blob/master/README.es.md) - [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md) - [Pусский](https://github.com/keleko34/pikantny/blob/master/README.ru.md) - [中文](https://github.com/keleko34/pikantny/blob/master/README.zh.md)
 
-Table of contents
+Оглавление
 =================
 
-   * [What is it?](#what-is-it)
-   * [Installation](#installation)
-   * How to use it:
-      * [Getting started](#getting-started)
-      * [Attributes](#attributes)
-      * [Properties](#properties)
-      * [Functions](#functions)
-      * [Styles](#styles)
-      * [Inputs](#inputs)
-      * [Event object](#event-object)
-   * [Examples](#examples)
-   * [Debugging](#debugging)
-   * [How to contribute](#how-to-contribute)
-   * [License](#license)
+   * [Что это?](#Что-это)
+   * [Монтаж](#installation)
+   * Как это использовать:
+      * [Начиная](#hачиная)
+      * [Атрибуты](#aтрибуты)
+      * [свойства](#свойства)
+      * [функции](#функции)
+      * [Стили](#cтили)
+      * [входные](#входные)
+      * [Объект события](#oбъект-события)
+   * [Примеры](#примеры)
+   * [отладка](#отладка)
+   * [Как внести свой вклад](#kак-внести-свой-вклад)
+   * [Лицензия](#лицензия)
 
-What is it?
+Что это?
 ==========
-This library allows you to use event listeners in such a manner as standard events to listen to changes from anything that happens on the DOM, from listening to when html changes to when a style gets set or even when a value on an input changes
+Эта библиотека позволяет использовать прослушиватели событий таким образом, как стандартные события, для прослушивания изменений от всего, что происходит в DOM, от прослушивания при изменении html до установки стиля или даже при изменении значения на входе.
 
-Installation
+Монтаж
 ============
-This libray can be installed using:
-
  * [NPM](https://www.npmjs.com) :  `npm install pikantny --save`
  * [Bower](https://bower.io/) : `bower install pikantny --save`
  * [Yarn](https://yarnpkg.com/lang/en/docs/install) : `yarn add pikantny`
 
-Getting started
+Начиная
 ============
-The script can be loaded both in the head and in the body. 
-All functionality is automatically loaded as soon as the file is loaded.
-*Note: include this script before any other scripts for proper implementation* 
+Скрипт может быть загружен как в голове, так и в теле.
+Все функции автоматически загружаются, как только файл загружен.
+* Примечание: включите этот скрипт перед любыми другими скриптами для правильной реализации *
 ```
  <script src="/(node_modules|bower_modules)/pikantny/init.min.js"></script>
 ```
 
-To start using it is as simple as just using your standard listener method
-#### Native
+Начать использовать это так же просто, как просто использовать стандартный метод слушателя
+#### стандарт
 ```
  var node = document.querySelector('selector')
  node.addEventListener('innerHTML', console.log);
@@ -56,14 +54,14 @@ To start using it is as simple as just using your standard listener method
  $('selector').on('innerHTML', console.log);
 ```
 
-when listening for propery events there are two different types of listeners, the pre DOM update listener and the post DOM update listener. By simply adding `update` to the end of any listener your event will fire post DOM update
+при прослушивании правильных событий есть два разных типа слушателей: прослушиватель обновления до DOM и прослушиватель обновления после DOM. Просто добавив `update` в конец любого слушателя, ваше событие сработает после обновления DOM
 ```
  node.addEventListener('innerHTMLupdate', console.log);
 ```
 
-Attributes
+Атрибуты
 ==========
-Attribute event listeners can be added to detect any changes in any attributes
+Слушатели события атрибута могут быть добавлены, чтобы обнаружить любые изменения в любых атрибутах
 ```
  node.addEventListener('id', console.log);
  node.setAttribute('id','your-id');
@@ -71,25 +69,25 @@ Attribute event listeners can be added to detect any changes in any attributes
  node.id = 'your-id';
 ```
 
-Properties
+свойства
 ==========
-Properties of an element also allow listening for any changes
+Свойства элемента также позволяют прослушивать любые изменения
 ```
  node.addEventListener('textContent', console.log);
  node.textContent = 'new-text';
 ```
 
-Functions
+функции
 ==========
-Any element methods allow listening for their execution
+Любые методы элементов позволяют прослушивать их выполнение
 ```
  node.addEventListener('appendChild', console.log);
  node.appendChild(input);
 ```
 
-Styles
+Стили
 ======
-Styles associated with the styles obect or styles attribute also allow listening for any changes, each respective listener will fire if multiple are set in the style attribute
+Стили, связанные с объектом стиля или атрибутом styles, также позволяют прослушивать любые изменения, каждый соответствующий слушатель будет срабатывать, если в атрибуте style задано несколько значений.
 ```
  node.addEventListener('color', console.log);
  node.style.color = '#000';
@@ -97,19 +95,19 @@ Styles associated with the styles obect or styles attribute also allow listening
  node.setAttribute('style','color:#000;');
 ```
 
-Inputs
+входные
 ======
-Input value changes also allow listening for any changes and are IME compatible
+Изменения входного значения также позволяют прослушивать любые изменения и совместимы с IME
 ```
  input.addEventListener('value', console.log);
 ```
 
-Event object
+Объект события
 ============
-The event object that is passed to each of these fired events allow for similiar functionality as that of a standard DOM event listener
+Объект события, который передается каждому из этих запущенных событий, обеспечивает аналогичную функциональность, что и стандартный приемник событий DOM.
 
 #### event.preventDefault()
-When called from a pre DOM update event, this method can be used to prevent the DOM from updating
+При вызове из события, предшествующего обновлению DOM, этот метод может использоваться для предотвращения обновления DOM
 ```
  // innerHTML, textContent, appendChild, etc
  node.addEventListener('html', function(e){ e.preventDefault(); });
@@ -119,7 +117,7 @@ When called from a pre DOM update event, this method can be used to prevent the 
 ```
 
 #### event.stop()
-When called from a pre DOM update event, this method can be used to stop the post DOM update events from firing
+При вызове из события, предшествующего обновлению DOM, этот метод может использоваться для остановки запуска событий обновления после DOM.
 ```
  node.addEventListener('innerHTML', function(e){ e.stop(); });
  
@@ -128,57 +126,57 @@ When called from a pre DOM update event, this method can be used to stop the pos
 ```
 
 #### event.stopPropogation()
-When called no bubbled listeners after the current one will fire
+При вызове слушатели не всплывают после того, как сработает текущий
 
 #### event.stopImmediatePropogation()
-When called no listeners after the current one will fire
+При вызове нет слушателей после того, как текущий сработает
 
 #### event.action
-This property shows the returning value of a executed function when looked at in a post DOM update event
+Это свойство показывает возвращаемое значение выполненной функции при просмотре в событии обновления DOM после
 
 #### event.value
-Shows the value that is being set
+Показывает значение, которое устанавливается
 
 #### event.oldValue
-Shows the previous value of the item being set
+Показывает предыдущее значение устанавливаемого элемента
 
-All other event properties follow the same guideline as a standard Event object
+Все остальные свойства события следуют тем же правилам, что и стандартный объект Event.
 
 
-Examples
+Примеры
 ========
-#### Element changes
-Don't allow an element to have any html changes
+#### Изменения HTML-элемента
+Не позволяйте элементу иметь какие-либо изменения HTML
 ```
  var node = document.querySelector('selector');
  node.addEventListener('html',function(e){e.preventDefault();});
 ```
 
-#### Validation
-Validate inputs to see if a given value is allowed.
-You can use `return false;` or `event.preventDefault();` to stop the input from updating
+#### Проверка
+Проверьте входные данные, чтобы увидеть, разрешено ли заданное значение.
+Вы можете использовать `return false;` или `event.preventDefault ();`, чтобы остановить обновление ввода
 ```
  var input = document.querySelector('selector');
  input.addEventListener('value',function(e){ return /^[0-9A-Za-z]+$/.test(e.value); });
 ```
 
-Debugging
+отладка
 =========
-This library supports dev console events panel, all events added will show up in this panel.
+Эта библиотека поддерживает панель событий dev console, все добавленные события будут отображаться на этой панели.
 
-How to contribute
+Как внести свой вклад
 =================
-If You would like to contribute here are the steps
+Если Вы хотели бы внести свой вклад здесь, шаги
 
-1. Clone Repo: [Pikantny Github Repo](https://github.com/keleko34/pikantny)
-2. Install any necessary dev dependencies
-3. build the project `npm run build`
-4. test your changes don't break anything `npm test`
-5. Make a request for your changes :)
+1. хранилище клонов: [Pikantny Github Repo](https://github.com/keleko34/pikantny)
+2. Установите все необходимые зависимости разработки
+3. скомпилировать проект `npm run build`
+4. проверить ваши изменения не сломайте ничего `npm test`
+5. Сделайте запрос на ваши изменения :)
 
-License
+Лицензия
 =======
-You can view the license here: [License](https://github.com/keleko34/pikantny/blob/master/LICENSE)
+Вы можете просмотреть лицензию здесь: [License](https://github.com/keleko34/pikantny/blob/master/LICENSE)
 
 [npm-url]: https://www.npmjs.com/package/pikantny
 [npm-image]: https://img.shields.io/npm/v/pikantny.svg

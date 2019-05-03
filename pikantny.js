@@ -70,8 +70,6 @@ window.pikantny = (function(){
                     .concat((CSSStyleDeclaration ? Object.getOwnPropertyNames(CSSStyleDeclaration.prototype) : []))
                     .filter(function(v,i,ar){return (ar.indexOf(v) === i);}),
       
-      __CSSSpecials__ = ['webkit','moz','ms'], // use to concat specials
-      
       /* allowing us to see the original events, and to skip observing when using addEventListener */
       __EventList__ = Object.keys(HTMLElement.prototype).filter(function(v){return (v.indexOf('on') === 0);})
       .concat(['onDOMContentLoaded','onDOMAttributeNameChanged','onDOMAttrModified','onDOMCharacterDataModified','onDOMNodeInserted','onDOMNodeRemoved','onDOMSubtreeModified']),
@@ -81,11 +79,6 @@ window.pikantny = (function(){
         'class': 'className',
         'tabindex': 'tabIndex'
       },
-      // use to ignore these input types for listening to value inputs
-      __InputIgnores__ = [
-        'submit',
-        'button'
-      ],
       
       /* firefox does not fire a keydown event, helps us detect IME keyboards */
       __InputIMEDetect__ = [
@@ -138,7 +131,6 @@ window.pikantny = (function(){
       __indexSelectDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'selectedIndex'),
       __valueInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'),
       __valueTextAreaDescriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value'),
-      __checkedInputDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'checked'),
       
       /* used as a faster approach inside the htmlupdate for updating bubbled events, note* IE doesnt allow call, apply on document or window */
       __querySelectorAll =  (function()
@@ -679,6 +671,14 @@ window.pikantny = (function(){
   if(Element.prototype.stop === undefined)
   {
       Element.prototype.stop = function(){ 
+          (this.__pikantnyExtensions__ || attachLocalBinders(this)).stop = true;
+          return this;
+      };
+  }
+  
+  if(Text.prototype.stop === undefined)
+  {
+      Text.prototype.stop = function(){
           (this.__pikantnyExtensions__ || attachLocalBinders(this)).stop = true;
           return this;
       };
@@ -1817,7 +1817,6 @@ window.pikantny = (function(){
         __set = _setStandard,
         __update = _updateStandard,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
-        __standardExists,
         __action = undefined;
     
     function set(key,v)
@@ -1868,7 +1867,6 @@ window.pikantny = (function(){
         __set = _setStandard,
         __update = _updateStandard,
         __extensions = (__element.__pikantnyExtensions__ || attachLocalBinders(__element)),
-        __standardExists,
         __action = undefined;
     
     function set(key)

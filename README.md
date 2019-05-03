@@ -3,7 +3,7 @@
 
 [![NPM version][npm-image]][npm-url] [![Gitter][gitter-image]][gitter-url]
 
-[English](https://github.com/keleko34/pikantny/blob/master/README.md) - [Español](https://github.com/keleko34/pikantny/blob/master/README.es.md) - [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md)
+[English](https://github.com/keleko34/pikantny/blob/master/README.md) - [Español](https://github.com/keleko34/pikantny/blob/master/README.es.md) - [Polski](https://github.com/keleko34/pikantny/blob/master/README.pl.md) - [Pусский](https://github.com/keleko34/pikantny/blob/master/README.ru.md) - [中文](https://github.com/keleko34/pikantny/blob/master/README.zh.md)
 
 Table of contents
 =================
@@ -89,7 +89,7 @@ Any element methods allow listening for their execution
 
 Styles
 ======
-Styles associated with the styles obect or styles attribute also allow listening for any changes, each respective listener will fire if multiple are set in the style attribute
+Styles associated with the styles object or styles attribute also allow listening for any changes, each respective listener will fire if multiple are set in the style attribute
 ```
  node.addEventListener('color', console.log);
  node.style.color = '#000';
