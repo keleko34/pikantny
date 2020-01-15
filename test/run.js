@@ -1,30 +1,39 @@
-var connect = require('connect')(),
-    static = require('serve-static'),
-    open = require('opn'),
-    base = process.cwd().replace(/\\/g,'/');
+const { spawn } = require('child_process'),
+      { createServer } = require("http"),
+      { stdin, platform } = process,
+      { createReadStream } = require('fs'),
+      base = process.cwd().replace(/\\/g, '/'),
+      app = (platform == 'darwin' ? 'open' : platform == 'win32' ? 'explorer.exe' : 'xdg-open');
+
+let browser;
+
+createServer((req, res) => {
+  if(req.url === '/') req.url = '/test/index.html';
+  const read = createReadStream(base + req.url, { encoding: 'utf8' });
+  read.on('open', () => { read.pipe(res); });
+  read.on('error', (err) => { console.error(err); res.end(''); });
+})
+.listen(8080);
+
+function exit() {
+  if(browser) browser.kill();
+  process.exit();
+}
+
+stdin.setEncoding('utf8');
+stdin.setRawMode(true);
+stdin.resume();
 
 console.info("\033[36mPress ctrl + o to quickly open the default web page in your default browser, ctrl + c will stop the server\033[37m");
 
-connect.use('/',static(base, {'index': ['/test/index.html']}));
+stdin.on('data',function(key) {
+  if(key.charCodeAt(0) === 15) {
+    if(!browser) browser = spawn(`${app}`, [`http://localhost:8080`]);
+  }
+  else {
+    if (key.charCodeAt(0) === 3) exit();
+    process.stdout.write(key);
+  }
+});
 
-connect.listen(8080);
-
-var stdin = process.stdin;
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.setEncoding('utf8');
-    stdin.on('data',function(key)
-    {
-        if(key === '\u000f')
-        {
-            open('http://localhost:8080');
-        }
-        else
-        {
-            if (key === '\u0003')
-            {
-                process.exit();
-            }
-            process.stdout.write(key);
-        }
-    });
+process.on('exit', exit);
