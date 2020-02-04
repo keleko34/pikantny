@@ -5,6 +5,7 @@
   "main": "pikantny.min.js",
   "scripts": {
     "test": "node ./test/run.js",
+    "debug": "node --inspect-brk ./test/run.js",
     "build": "node ./build.js"
   },
   "repository": {
